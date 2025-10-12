@@ -34,7 +34,7 @@ const Dashboard = () => {
   const recentServices = containers.slice(0, 4).map(container => ({
     name: container.Names[0]?.replace('/', '') || 'unknown',
     cluster: 'local',
-    status: container.State as "running" | "pending" | "stopped",
+    status: container.State || 'unknown',
     tasks: container.State === "running" ? 1 : 0,
   }));
 

@@ -1,8 +1,6 @@
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
-  Boxes,
-  List,
   Container,
   Settings,
 } from "lucide-react";
@@ -20,8 +18,6 @@ import {
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Clusters", url: "/clusters", icon: Boxes },
-  { title: "Services", url: "/services", icon: List },
   { title: "Tasks", url: "/tasks", icon: Container },
 ];
 

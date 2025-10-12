@@ -14,7 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      containers: {
+        Row: {
+          config_id: string | null
+          created: number | null
+          id: string
+          image: string | null
+          labels: Json | null
+          last_synced: string | null
+          name: string
+          ports: Json | null
+          state: string | null
+          status: string | null
+        }
+        Insert: {
+          config_id?: string | null
+          created?: number | null
+          id: string
+          image?: string | null
+          labels?: Json | null
+          last_synced?: string | null
+          name: string
+          ports?: Json | null
+          state?: string | null
+          status?: string | null
+        }
+        Update: {
+          config_id?: string | null
+          created?: number | null
+          id?: string
+          image?: string | null
+          labels?: Json | null
+          last_synced?: string | null
+          name?: string
+          ports?: Json | null
+          state?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "containers_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "docker_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      docker_config: {
+        Row: {
+          created_at: string | null
+          host: string
+          id: string
+          is_active: boolean | null
+          name: string
+          port: number
+          protocol: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          host?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          port?: number
+          protocol?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          host?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          port?: number
+          protocol?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

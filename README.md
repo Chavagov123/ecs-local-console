@@ -14,7 +14,9 @@ real AWS.
 
 ## Status
 
-**M1 — read-only browser** is in progress. Working today:
+**v0.1.0 — read-only browser + backend write API.**
+
+UI, working today:
 
 - Clusters list + detail (services / tasks tabs), create & delete cluster
 - Service detail: overview, deployments, events, tasks — with adaptive polling that
@@ -25,7 +27,26 @@ real AWS.
 - Cross-cluster task list, endpoint settings + connection test
 - Light concept tooltips (what `PROVISIONING` means, why the scheduler replaced a task)
 
-Not yet: task-definition editor (M2), live SSE reconciliation stream + log viewer (M3).
+API, working today (UI still to come):
+
+- Create / scale / update / delete service, run / stop task, register / deregister
+  task definition — all covered by an 8-step lifecycle test against a real ECS API
+  implementation.
+
+Not yet: the write UI (task-definition editor, service / run-task dialogs), a live
+reconciliation stream, and a CloudWatch Logs viewer.
+
+## Run it
+
+With the published image (needs LocalStack + Docker):
+
+```sh
+curl -O https://raw.githubusercontent.com/Chavagov123/ecs-local-console/main/docker-compose.yml
+docker compose up
+```
+
+Then open <http://localhost:4570>. This starts LocalStack and the console together; the
+image is `ghcr.io/chavagov123/ecs-local-console`.
 
 ## Architecture
 
@@ -44,7 +65,7 @@ the client. The server is a thin, stateless translator.
 
 ## Develop
 
-Prerequisites: Node 20+, pnpm 11, Docker (for LocalStack).
+Prerequisites: Node 22+, pnpm 11, Docker (for LocalStack).
 
 ```sh
 pnpm install

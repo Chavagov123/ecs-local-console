@@ -1,0 +1,21 @@
+# Brings up only LocalStack, for local development of the console itself
+# (run `pnpm dev` separately). For the full packaged experience see docker-compose.yml.
+services:
+  localstack:
+    image: localstack/localstack:4
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=ecs,cloudwatch,logs,ec2,iam,elbv2,servicediscovery,sts
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "localstack-data:/var/lib/localstack"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  localstack-data:

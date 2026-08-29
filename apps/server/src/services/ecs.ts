@@ -1,10 +1,11 @@
 import {
   CreateClusterCommand,
+  DeleteClusterCommand,
   DescribeClustersCommand,
   ListClustersCommand,
   type Cluster,
 } from "@aws-sdk/client-ecs";
-import type { ClusterSummary } from "@ecs-local-console/shared";
+import type { ClusterDetail, ClusterSummary } from "@ecs-local-console/shared";
 import type { ClientRegistry } from "../aws/clients.js";
 import type { TtlCache } from "./cache.js";
 
@@ -61,6 +62,43 @@ export async function listClusters(
   });
 }
 
+export async function describeCluster(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+): Promise<ClusterDetail> {
+  return cache.wrap(`clusters:detail:${cluster}`, async () => {
+    const res = await clients.ecs().send(
+      new DescribeClustersCommand({
+        clusters: [cluster],
+        include: ["STATISTICS", "TAGS", "SETTINGS", "ATTACHMENTS"],
+      }),
+    );
+    const c = res.clusters?.[0];
+    if (!c) {
+      const failure = res.failures?.[0];
+      throw Object.assign(new Error(failure?.reason ?? `Cluster ${cluster} not found`), {
+        name: "ClusterNotFoundException",
+      });
+    }
+    const statistics: Record<string, string> = {};
+    for (const kv of c.statistics ?? []) if (kv.name) statistics[kv.name] = kv.value ?? "";
+    const settings: Record<string, string> = {};
+    for (const kv of c.settings ?? []) if (kv.name) settings[kv.name] = kv.value ?? "";
+    return {
+      ...toClusterSummary(c),
+      statistics,
+      settings,
+      capacityProviders: c.capacityProviders ?? [],
+      defaultCapacityProviderStrategy: (c.defaultCapacityProviderStrategy ?? []).map((s) => ({
+        capacityProvider: s.capacityProvider ?? "",
+        weight: s.weight,
+        base: s.base,
+      })),
+    };
+  });
+}
+
 export async function createCluster(
   clients: ClientRegistry,
   cache: TtlCache,
@@ -76,4 +114,13 @@ export async function createCluster(
   );
   cache.invalidate("clusters:");
   return toClusterSummary(res.cluster ?? { clusterName: input.clusterName });
+}
+
+export async function deleteCluster(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+): Promise<void> {
+  await clients.ecs().send(new DeleteClusterCommand({ cluster }));
+  cache.invalidate("clusters:");
 }

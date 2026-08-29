@@ -1,4 +1,8 @@
-import type { ClusterSummary, CreateClusterRequest } from "@ecs-local-console/shared";
+import type {
+  ClusterDetail,
+  ClusterSummary,
+  CreateClusterRequest,
+} from "@ecs-local-console/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "./client";
 import { qk } from "./keys";
@@ -12,11 +16,30 @@ export function useClusters() {
   });
 }
 
+export function useCluster(cluster: string) {
+  return useQuery({
+    queryKey: qk.cluster(cluster),
+    queryFn: ({ signal }) =>
+      apiFetch<ClusterDetail>(`/clusters/${encodeURIComponent(cluster)}`, { signal }),
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: false,
+  });
+}
+
 export function useCreateCluster() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateClusterRequest) =>
       apiFetch<ClusterSummary>("/clusters", { method: "POST", body }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: qk.clusters() }),
+  });
+}
+
+export function useDeleteCluster() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (cluster: string) =>
+      apiFetch<void>(`/clusters/${encodeURIComponent(cluster)}`, { method: "DELETE" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.clusters() }),
   });
 }

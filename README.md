@@ -14,10 +14,18 @@ real AWS.
 
 ## Status
 
-Milestone **M0 — skeleton** is done: monorepo, backend with `/api/health`, `/api/config`,
-`/api/clusters`, and a web app with a live clusters list + settings. See
-[the plan](https://github.com/Chavagov123/ecs-local-console) for the roadmap
-(M1 read-only browser → M2 writes → M3 live reconciliation).
+**M1 — read-only browser** is in progress. Working today:
+
+- Clusters list + detail (services / tasks tabs), create & delete cluster
+- Service detail: overview, deployments, events, tasks — with adaptive polling that
+  speeds up while a deployment is rolling out
+- Task detail: containers, network (ENI attachments), raw JSON, stopped-reason surfacing
+- Task definitions: families → revisions → revision JSON, register-as-new-revision,
+  deregister
+- Cross-cluster task list, endpoint settings + connection test
+- Light concept tooltips (what `PROVISIONING` means, why the scheduler replaced a task)
+
+Not yet: task-definition editor (M2), live SSE reconciliation stream + log viewer (M3).
 
 ## Architecture
 

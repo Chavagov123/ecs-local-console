@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { normalizeAwsError } from "../aws/errors.js";
-import { createCluster, listClusters } from "../services/ecs.js";
+import { createCluster, deleteCluster, describeCluster, listClusters } from "../services/ecs.js";
 
 const createSchema = z.object({
   clusterName: z
@@ -13,11 +13,13 @@ const createSchema = z.object({
 });
 
 export const clusterRoutes: FastifyPluginAsync = async (app) => {
+  const endpoint = () => app.configStore.get().endpoint;
+
   app.get("/clusters", async () => {
     try {
       return await listClusters(app.clients, app.cache);
     } catch (err) {
-      throw normalizeAwsError(err, app.configStore.get().endpoint);
+      throw normalizeAwsError(err, endpoint());
     }
   });
 
@@ -36,7 +38,24 @@ export const clusterRoutes: FastifyPluginAsync = async (app) => {
       const cluster = await createCluster(app.clients, app.cache, parsed.data);
       return reply.code(201).send(cluster);
     } catch (err) {
-      throw normalizeAwsError(err, app.configStore.get().endpoint);
+      throw normalizeAwsError(err, endpoint());
+    }
+  });
+
+  app.get<{ Params: { cluster: string } }>("/clusters/:cluster", async (req) => {
+    try {
+      return await describeCluster(app.clients, app.cache, req.params.cluster);
+    } catch (err) {
+      throw normalizeAwsError(err, endpoint());
+    }
+  });
+
+  app.delete<{ Params: { cluster: string } }>("/clusters/:cluster", async (req, reply) => {
+    try {
+      await deleteCluster(app.clients, app.cache, req.params.cluster);
+      return reply.code(204).send();
+    } catch (err) {
+      throw normalizeAwsError(err, endpoint());
     }
   });
 };

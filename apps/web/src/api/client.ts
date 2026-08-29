@@ -36,13 +36,13 @@ export interface RequestOptions {
   method?: string;
   body?: unknown;
   signal?: AbortSignal;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, string | number | boolean | undefined> | object;
 }
 
 export async function apiFetch<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const url = new URL(BASE + path, window.location.origin);
-  for (const [k, v] of Object.entries(opts.query ?? {})) {
-    if (v !== undefined) url.searchParams.set(k, String(v));
+  for (const [k, v] of Object.entries((opts.query ?? {}) as Record<string, unknown>)) {
+    if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
   }
 
   let res: Response;

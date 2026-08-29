@@ -32,20 +32,13 @@ export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
 /** Result of `GET /api/health`. */
 export interface HealthResponse {
-  /** The endpoint responded to a probe request. */
   reachable: boolean;
-  /** `ListClusters` succeeded — the ECS API is available at this endpoint. */
   ecsAvailable: boolean;
-  /** Endpoint the server is currently pointed at. */
   endpoint: string;
   region: string;
-  /** Emulator version string, when discoverable (LocalStack `_localstack/health`). */
   version?: string;
-  /** e.g. `localstack`, `ministack`, `aws`, `unknown`. */
   flavor?: string;
-  /** Round-trip latency of the probe, in milliseconds. */
   latencyMs?: number;
-  /** Populated when `reachable` is false. */
   detail?: string;
 }
 
@@ -53,12 +46,9 @@ export interface HealthResponse {
 export interface RuntimeConfigResponse {
   endpoint: string;
   region: string;
-  /** `static` (test/test or explicit keys) or `profile`. */
   credentialsMode: "static" | "profile" | "default-chain";
   profile?: string;
-  /** True when the endpoint host is not loopback / a private address. */
   endpointIsRemote: boolean;
-  /** Set from env at boot; the UI shows a warning when a remote endpoint is used. */
   source: "env" | "runtime-override";
 }
 
@@ -70,7 +60,10 @@ export interface UpdateRuntimeConfigRequest {
   secretAccessKey?: string;
 }
 
-/** One row in the clusters list (`GET /api/clusters`). */
+// ---------------------------------------------------------------------------
+// Clusters
+// ---------------------------------------------------------------------------
+
 export interface ClusterSummary {
   name: string;
   arn: string;
@@ -82,12 +75,187 @@ export interface ClusterSummary {
   tags: Record<string, string>;
 }
 
+export interface ClusterDetail extends ClusterSummary {
+  statistics: Record<string, string>;
+  settings: Record<string, string>;
+  capacityProviders: string[];
+  defaultCapacityProviderStrategy: {
+    capacityProvider: string;
+    weight?: number;
+    base?: number;
+  }[];
+}
+
 export interface CreateClusterRequest {
   clusterName: string;
   tags?: Record<string, string>;
 }
 
-/** Server-Sent Event payload on `GET /api/events`. */
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+export interface ServiceDeployment {
+  id: string;
+  status: string;
+  taskDefinition: string;
+  desiredCount: number;
+  pendingCount: number;
+  runningCount: number;
+  failedTasks: number;
+  rolloutState?: string;
+  rolloutStateReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ServiceEvent {
+  id: string;
+  createdAt?: string;
+  message: string;
+}
+
+export interface LoadBalancerRef {
+  targetGroupArn?: string;
+  loadBalancerName?: string;
+  containerName?: string;
+  containerPort?: number;
+}
+
+export interface ServiceSummary {
+  name: string;
+  arn: string;
+  clusterArn: string;
+  status: string;
+  taskDefinition: string;
+  desiredCount: number;
+  runningCount: number;
+  pendingCount: number;
+  launchType?: string;
+  schedulingStrategy?: string;
+  createdAt?: string;
+  /** True when a deployment is not yet COMPLETED or counts don't match desired. */
+  deploymentInProgress: boolean;
+}
+
+export interface ServiceDetail extends ServiceSummary {
+  roleArn?: string;
+  propagateTags?: string;
+  enableExecuteCommand?: boolean;
+  deploymentConfiguration?: {
+    minimumHealthyPercent?: number;
+    maximumPercent?: number;
+    deploymentCircuitBreaker?: { enable: boolean; rollback: boolean };
+  };
+  networkConfiguration?: NetworkConfiguration;
+  loadBalancers: LoadBalancerRef[];
+  serviceRegistries: { registryArn?: string; containerName?: string; containerPort?: number }[];
+  deployments: ServiceDeployment[];
+  events: ServiceEvent[];
+  tags: Record<string, string>;
+}
+
+export interface NetworkConfiguration {
+  awsvpcConfiguration?: {
+    subnets: string[];
+    securityGroups: string[];
+    assignPublicIp?: string;
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tasks
+// ---------------------------------------------------------------------------
+
+export interface TaskContainer {
+  name: string;
+  image?: string;
+  lastStatus?: string;
+  healthStatus?: string;
+  exitCode?: number;
+  reason?: string;
+  networkBindings: {
+    bindIP?: string;
+    containerPort?: number;
+    hostPort?: number;
+    protocol?: string;
+  }[];
+  networkInterfaces: { privateIpv4Address?: string; attachmentId?: string }[];
+  logConfiguration?: {
+    logDriver: string;
+    options?: Record<string, string>;
+  };
+}
+
+export interface TaskSummary {
+  taskId: string;
+  arn: string;
+  clusterArn: string;
+  taskDefinition: string;
+  lastStatus: string;
+  desiredStatus: string;
+  healthStatus?: string;
+  launchType?: string;
+  cpu?: string;
+  memory?: string;
+  startedBy?: string;
+  group?: string;
+  createdAt?: string;
+  startedAt?: string;
+  stoppedAt?: string;
+  stoppedReason?: string;
+  /** True while lastStatus !== desiredStatus. */
+  transitioning: boolean;
+}
+
+export interface TaskDetail extends TaskSummary {
+  connectivity?: string;
+  platformVersion?: string;
+  containers: TaskContainer[];
+  attachments: {
+    id?: string;
+    type?: string;
+    status?: string;
+    details: Record<string, string>;
+  }[];
+  overrides?: unknown;
+  tags: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// Task definitions
+// ---------------------------------------------------------------------------
+
+export interface TaskDefFamily {
+  family: string;
+  latestRevision?: number;
+  activeRevisions: number;
+  status: string;
+}
+
+export interface TaskDefRevisionSummary {
+  family: string;
+  revision: number;
+  arn: string;
+  status: string;
+  cpu?: string;
+  memory?: string;
+  networkMode?: string;
+  requiresCompatibilities: string[];
+  containerNames: string[];
+  registeredAt?: string;
+}
+
+export interface TaskDefDetail extends TaskDefRevisionSummary {
+  /** The raw RegisterTaskDefinition-shaped JSON, for the editor and diff views. */
+  json: Record<string, unknown>;
+  tags: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// Events (SSE)
+// ---------------------------------------------------------------------------
+
 export interface ChangeEvent {
   type:
     | "task.started"
@@ -96,10 +264,7 @@ export interface ChangeEvent {
     | "service.deployment.completed"
     | "service.changed";
   cluster: string;
-  /** Resource id/arn the event concerns (task id, service name). */
   resource: string;
-  /** ISO timestamp. */
   ts: string;
-  /** Optional free-text detail (e.g. a `stoppedReason`). */
   detail?: string;
 }

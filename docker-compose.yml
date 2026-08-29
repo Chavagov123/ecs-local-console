@@ -1,0 +1,38 @@
+# Full stack: LocalStack + the ECS Local Console, wired together.
+#   docker compose up
+# then open http://localhost:4570
+services:
+  localstack:
+    image: localstack/localstack:4
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=ecs,cloudwatch,logs,ec2,iam,elbv2,servicediscovery,sts
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      # Required: LocalStack launches ECS task containers on the host Docker engine.
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "localstack-data:/var/lib/localstack"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  console:
+    build: .
+    image: ghcr.io/chavagov123/ecs-local-console:latest
+    ports:
+      - "4570:4570"
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - PORT=4570
+    depends_on:
+      localstack:
+        condition: service_healthy
+
+volumes:
+  localstack-data:

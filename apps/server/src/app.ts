@@ -10,6 +10,9 @@ import { loadServerConfig, RuntimeConfigStore, type ServerConfig } from "./confi
 import { clusterRoutes } from "./routes/clusters.js";
 import { configRoutes } from "./routes/config.js";
 import { healthRoutes } from "./routes/health.js";
+import { serviceRoutes } from "./routes/services.js";
+import { taskDefinitionRoutes } from "./routes/task-definitions.js";
+import { taskRoutes } from "./routes/tasks.js";
 import { TtlCache } from "./services/cache.js";
 
 declare module "fastify" {
@@ -70,6 +73,9 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       await api.register(healthRoutes);
       await api.register(configRoutes);
       await api.register(clusterRoutes);
+      await api.register(serviceRoutes);
+      await api.register(taskRoutes);
+      await api.register(taskDefinitionRoutes);
     },
     { prefix: "/api" },
   );

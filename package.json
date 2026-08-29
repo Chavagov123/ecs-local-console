@@ -7,7 +7,7 @@
   "type": "module",
   "packageManager": "pnpm@11.23.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "dev": "pnpm --filter @ecs-local-console/shared build && pnpm --parallel --filter @ecs-local-console/shared --filter @ecs-local-console/web --filter @ecs-local-console/server dev",

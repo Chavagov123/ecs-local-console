@@ -1,7 +1,12 @@
 import {
+  CreateServiceCommand,
+  DeleteServiceCommand,
   DescribeServicesCommand,
   ListServicesCommand,
+  UpdateServiceCommand,
+  type CreateServiceCommandInput,
   type Service,
+  type UpdateServiceCommandInput,
 } from "@aws-sdk/client-ecs";
 import type {
   ServiceDeployment,
@@ -38,9 +43,9 @@ export function toServiceSummary(s: Service): ServiceSummary {
     clusterArn: s.clusterArn ?? "",
     status: s.status ?? "UNKNOWN",
     taskDefinition: tdName(s.taskDefinition),
-    desiredCount: s.desiredCount ?? 0,
-    runningCount: s.runningCount ?? 0,
-    pendingCount: s.pendingCount ?? 0,
+    desiredCount: Math.max(0, s.desiredCount ?? 0),
+    runningCount: Math.max(0, s.runningCount ?? 0),
+    pendingCount: Math.max(0, s.pendingCount ?? 0),
     launchType: s.launchType,
     schedulingStrategy: s.schedulingStrategy,
     createdAt: s.createdAt?.toISOString(),
@@ -161,4 +166,42 @@ export async function describeService(
     }
     return toServiceDetail(s);
   });
+}
+
+export async function createService(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+  input: Omit<CreateServiceCommandInput, "cluster">,
+): Promise<ServiceDetail> {
+  const res = await clients.ecs().send(new CreateServiceCommand({ ...input, cluster }));
+  cache.invalidate(`services:`);
+  cache.invalidate(`clusters:`);
+  return toServiceDetail(res.service ?? {});
+}
+
+export async function updateService(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+  service: string,
+  patch: Omit<UpdateServiceCommandInput, "cluster" | "service">,
+): Promise<ServiceDetail> {
+  const res = await clients
+    .ecs()
+    .send(new UpdateServiceCommand({ ...patch, cluster, service }));
+  cache.invalidate(`services:`);
+  return toServiceDetail(res.service ?? {});
+}
+
+export async function deleteService(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+  service: string,
+  force: boolean,
+): Promise<void> {
+  await clients.ecs().send(new DeleteServiceCommand({ cluster, service, force }));
+  cache.invalidate(`services:`);
+  cache.invalidate(`clusters:`);
 }

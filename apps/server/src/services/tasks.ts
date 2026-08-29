@@ -1,8 +1,11 @@
 import {
   DescribeTasksCommand,
   ListTasksCommand,
-  type Task,
+  RunTaskCommand,
+  StopTaskCommand,
   type DesiredStatus,
+  type RunTaskCommandInput,
+  type Task,
 } from "@aws-sdk/client-ecs";
 import type { TaskContainer, TaskDetail, TaskSummary } from "@ecs-local-console/shared";
 import type { ClientRegistry } from "../aws/clients.js";
@@ -145,4 +148,35 @@ export async function describeTask(
     }
     return toTaskDetail(t);
   });
+}
+
+export async function runTask(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+  input: Omit<RunTaskCommandInput, "cluster">,
+): Promise<TaskSummary[]> {
+  const res = await clients.ecs().send(new RunTaskCommand({ ...input, cluster }));
+  cache.invalidate(`tasks:`);
+  cache.invalidate(`clusters:`);
+  if (res.failures && res.failures.length > 0 && (res.tasks ?? []).length === 0) {
+    const f = res.failures[0];
+    throw Object.assign(new Error(f?.reason ?? "RunTask failed"), { name: "InvalidParameterException" });
+  }
+  return (res.tasks ?? []).map(toTaskSummary);
+}
+
+export async function stopTask(
+  clients: ClientRegistry,
+  cache: TtlCache,
+  cluster: string,
+  taskId: string,
+  reason: string | undefined,
+): Promise<TaskSummary> {
+  const res = await clients
+    .ecs()
+    .send(new StopTaskCommand({ cluster, task: taskId, reason: reason ?? "Stopped from ECS Local Console" }));
+  cache.invalidate(`tasks:`);
+  cache.invalidate(`clusters:`);
+  return toTaskSummary(res.task ?? {});
 }

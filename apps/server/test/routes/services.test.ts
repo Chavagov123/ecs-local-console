@@ -1,9 +1,12 @@
 import {
+  CreateServiceCommand,
+  DeleteServiceCommand,
   DescribeServicesCommand,
   DescribeTasksCommand,
   ECSClient,
   ListServicesCommand,
   ListTasksCommand,
+  UpdateServiceCommand,
 } from "@aws-sdk/client-ecs";
 import { mockClient } from "aws-sdk-client-mock";
 import type { FastifyInstance } from "fastify";
@@ -57,6 +60,67 @@ describe("services", () => {
     ecsMock.on(DescribeServicesCommand).resolves({ services: [] });
     const res = await app.inject({ method: "GET", url: "/api/clusters/demo/services/nope" });
     expect(res.statusCode).toBe(404);
+  });
+
+  it("creates a service and clamps negative counts to 0", async () => {
+    ecsMock.on(CreateServiceCommand).resolves({
+      service: {
+        serviceName: "web",
+        status: "ACTIVE",
+        desiredCount: 2,
+        runningCount: -1,
+        pendingCount: 0,
+        taskDefinition: "arn:aws:ecs:us-east-1:0:task-definition/web:1",
+        deployments: [{ rolloutState: "IN_PROGRESS" }],
+      },
+    });
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/clusters/demo/services",
+      payload: { serviceName: "web", taskDefinition: "web:1", desiredCount: 2 },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().runningCount).toBe(0);
+  });
+
+  it("rejects an invalid service create before calling AWS", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/clusters/demo/services",
+      payload: { serviceName: "web" }, // missing taskDefinition
+    });
+    expect(res.statusCode).toBe(400);
+    expect(ecsMock.commandCalls(CreateServiceCommand)).toHaveLength(0);
+  });
+
+  it("scales a service via PATCH", async () => {
+    ecsMock.on(UpdateServiceCommand).resolves({
+      service: { serviceName: "web", status: "ACTIVE", desiredCount: 5, deployments: [] },
+    });
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/clusters/demo/services/web",
+      payload: { desiredCount: 5 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().desiredCount).toBe(5);
+    expect(ecsMock.commandCalls(UpdateServiceCommand)[0]!.args[0].input).toMatchObject({
+      cluster: "demo",
+      service: "web",
+      desiredCount: 5,
+    });
+  });
+
+  it("deletes a service with force", async () => {
+    ecsMock.on(DeleteServiceCommand).resolves({});
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/clusters/demo/services/web?force=true",
+    });
+    expect(res.statusCode).toBe(204);
+    expect(ecsMock.commandCalls(DeleteServiceCommand)[0]!.args[0].input).toMatchObject({
+      force: true,
+    });
   });
 
   it("lists a service's tasks", async () => {

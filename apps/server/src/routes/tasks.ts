@@ -2,13 +2,29 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { normalizeAwsError } from "../aws/errors.js";
 import { listClusters } from "../services/ecs.js";
-import { describeTask, listTasks } from "../services/tasks.js";
+import { describeTask, listTasks, runTask, stopTask } from "../services/tasks.js";
 
 const listQuery = z.object({
   desiredStatus: z.enum(["RUNNING", "PENDING", "STOPPED"]).optional(),
   family: z.string().optional(),
   startedBy: z.string().optional(),
   launchType: z.enum(["EC2", "FARGATE", "EXTERNAL"]).optional(),
+});
+
+const awsvpc = z.object({
+  subnets: z.array(z.string()).min(1),
+  securityGroups: z.array(z.string()).optional(),
+  assignPublicIp: z.enum(["ENABLED", "DISABLED"]).optional(),
+});
+
+const runSchema = z.object({
+  taskDefinition: z.string().min(1),
+  count: z.number().int().min(1).max(10).optional(),
+  launchType: z.enum(["EC2", "FARGATE", "EXTERNAL"]).optional(),
+  group: z.string().optional(),
+  startedBy: z.string().optional(),
+  networkConfiguration: z.object({ awsvpcConfiguration: awsvpc }).optional(),
+  overrides: z.record(z.any()).optional(),
 });
 
 export const taskRoutes: FastifyPluginAsync = async (app) => {
@@ -23,11 +39,47 @@ export const taskRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
+  app.post<{ Params: { cluster: string } }>("/clusters/:cluster/tasks", async (req, reply) => {
+    const parsed = runSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: {
+          code: "INVALID_PARAMETER",
+          message: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+          retryable: false,
+        },
+      });
+    }
+    try {
+      const tasks = await runTask(app.clients, app.cache, req.params.cluster, parsed.data);
+      return reply.code(201).send(tasks);
+    } catch (err) {
+      throw normalizeAwsError(err, endpoint());
+    }
+  });
+
   app.get<{ Params: { cluster: string; taskId: string } }>(
     "/clusters/:cluster/tasks/:taskId",
     async (req) => {
       try {
         return await describeTask(app.clients, app.cache, req.params.cluster, req.params.taskId);
+      } catch (err) {
+        throw normalizeAwsError(err, endpoint());
+      }
+    },
+  );
+
+  app.delete<{ Params: { cluster: string; taskId: string }; Body: { reason?: string } }>(
+    "/clusters/:cluster/tasks/:taskId",
+    async (req) => {
+      try {
+        return await stopTask(
+          app.clients,
+          app.cache,
+          req.params.cluster,
+          req.params.taskId,
+          (req.body as { reason?: string } | undefined)?.reason,
+        );
       } catch (err) {
         throw normalizeAwsError(err, endpoint());
       }

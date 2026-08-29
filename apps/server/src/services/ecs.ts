@@ -15,15 +15,18 @@ function tagsToRecord(tags: { key?: string; value?: string }[] | undefined): Rec
   return out;
 }
 
+/** Some emulators briefly report negative counts during churn; never surface those. */
+const nonNeg = (n: number | undefined): number => Math.max(0, n ?? 0);
+
 export function toClusterSummary(c: Cluster): ClusterSummary {
   return {
     name: c.clusterName ?? "",
     arn: c.clusterArn ?? "",
     status: c.status ?? "UNKNOWN",
-    registeredContainerInstancesCount: c.registeredContainerInstancesCount ?? 0,
-    runningTasksCount: c.runningTasksCount ?? 0,
-    pendingTasksCount: c.pendingTasksCount ?? 0,
-    activeServicesCount: c.activeServicesCount ?? 0,
+    registeredContainerInstancesCount: nonNeg(c.registeredContainerInstancesCount),
+    runningTasksCount: nonNeg(c.runningTasksCount),
+    pendingTasksCount: nonNeg(c.pendingTasksCount),
+    activeServicesCount: nonNeg(c.activeServicesCount),
     tags: tagsToRecord(c.tags),
   };
 }
@@ -76,10 +79,12 @@ export async function describeCluster(
     );
     const c = res.clusters?.[0];
     if (!c) {
-      const failure = res.failures?.[0];
-      throw Object.assign(new Error(failure?.reason ?? `Cluster ${cluster} not found`), {
-        name: "ClusterNotFoundException",
-      });
+      const reason = res.failures?.[0]?.reason;
+      const msg =
+        reason && reason !== "MISSING"
+          ? `Cluster "${cluster}": ${reason}`
+          : `Cluster "${cluster}" not found`;
+      throw Object.assign(new Error(msg), { name: "ClusterNotFoundException" });
     }
     const statistics: Record<string, string> = {};
     for (const kv of c.statistics ?? []) if (kv.name) statistics[kv.name] = kv.value ?? "";

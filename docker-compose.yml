@@ -20,8 +20,10 @@ services:
       retries: 20
 
   console:
-    build: .
     image: ghcr.io/chavagov123/ecs-local-console:latest
+    # For local development against your own changes, build instead:
+    #   docker compose build   (needs a checkout of the repo)
+    # build: .
     ports:
       - "4570:4570"
     environment:

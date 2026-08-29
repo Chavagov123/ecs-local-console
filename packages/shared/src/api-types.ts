@@ -208,6 +208,22 @@ export interface TaskSummary {
   transitioning: boolean;
 }
 
+/** One entry of ECS's `failures[]` — a placement the scheduler rejected. */
+export interface EcsFailure {
+  arn?: string;
+  reason: string;
+  detail?: string;
+}
+
+/**
+ * `RunTask` is partially fallible: ECS can place some copies and reject others,
+ * so both halves are reported rather than only the tasks that started.
+ */
+export interface RunTaskResult {
+  tasks: TaskSummary[];
+  failures: EcsFailure[];
+}
+
 export interface TaskDetail extends TaskSummary {
   connectivity?: string;
   platformVersion?: string;

@@ -83,6 +83,17 @@ describe("services", () => {
     expect(res.json().runningCount).toBe(0);
   });
 
+  it("does not invent a service when CreateService echoes none", async () => {
+    ecsMock.on(CreateServiceCommand).resolves({});
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/clusters/demo/services",
+      payload: { serviceName: "web", taskDefinition: "web:1" },
+    });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error.code).toBe("UPSTREAM_ERROR");
+  });
+
   it("rejects an invalid service create before calling AWS", async () => {
     const res = await app.inject({
       method: "POST",

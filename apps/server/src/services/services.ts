@@ -16,7 +16,7 @@ import type {
 } from "@ecs-local-console/shared";
 import type { ClientRegistry } from "../aws/clients.js";
 import type { TtlCache } from "./cache.js";
-import { chunk } from "./ecs.js";
+import { chunk, nonNeg } from "./ecs.js";
 
 function shortName(arn: string | undefined): string {
   if (!arn) return "";
@@ -43,9 +43,9 @@ export function toServiceSummary(s: Service): ServiceSummary {
     clusterArn: s.clusterArn ?? "",
     status: s.status ?? "UNKNOWN",
     taskDefinition: tdName(s.taskDefinition),
-    desiredCount: Math.max(0, s.desiredCount ?? 0),
-    runningCount: Math.max(0, s.runningCount ?? 0),
-    pendingCount: Math.max(0, s.pendingCount ?? 0),
+    desiredCount: nonNeg(s.desiredCount),
+    runningCount: nonNeg(s.runningCount),
+    pendingCount: nonNeg(s.pendingCount),
     launchType: s.launchType,
     schedulingStrategy: s.schedulingStrategy,
     createdAt: s.createdAt?.toISOString(),
@@ -58,10 +58,10 @@ function toDeployment(d: NonNullable<Service["deployments"]>[number]): ServiceDe
     id: d.id ?? "",
     status: d.status ?? "",
     taskDefinition: tdName(d.taskDefinition),
-    desiredCount: d.desiredCount ?? 0,
-    pendingCount: d.pendingCount ?? 0,
-    runningCount: d.runningCount ?? 0,
-    failedTasks: d.failedTasks ?? 0,
+    desiredCount: nonNeg(d.desiredCount),
+    pendingCount: nonNeg(d.pendingCount),
+    runningCount: nonNeg(d.runningCount),
+    failedTasks: nonNeg(d.failedTasks),
     rolloutState: d.rolloutState,
     rolloutStateReason: d.rolloutStateReason,
     createdAt: d.createdAt?.toISOString(),
@@ -168,6 +168,16 @@ export async function describeService(
   });
 }
 
+/**
+ * Every service mutation moves task counts too, so all three read families are
+ * dropped — not just `services:`.
+ */
+function invalidateServiceReads(cache: TtlCache): void {
+  cache.invalidate(`services:`);
+  cache.invalidate(`clusters:`);
+  cache.invalidate(`tasks:`);
+}
+
 export async function createService(
   clients: ClientRegistry,
   cache: TtlCache,
@@ -175,9 +185,13 @@ export async function createService(
   input: Omit<CreateServiceCommandInput, "cluster">,
 ): Promise<ServiceDetail> {
   const res = await clients.ecs().send(new CreateServiceCommand({ ...input, cluster }));
-  cache.invalidate(`services:`);
-  cache.invalidate(`clusters:`);
-  return toServiceDetail(res.service ?? {});
+  invalidateServiceReads(cache);
+  if (!res.service) {
+    throw Object.assign(new Error("CreateService returned no service"), {
+      name: "UpstreamResponseError",
+    });
+  }
+  return toServiceDetail(res.service);
 }
 
 export async function updateService(
@@ -190,8 +204,13 @@ export async function updateService(
   const res = await clients
     .ecs()
     .send(new UpdateServiceCommand({ ...patch, cluster, service }));
-  cache.invalidate(`services:`);
-  return toServiceDetail(res.service ?? {});
+  invalidateServiceReads(cache);
+  if (!res.service) {
+    throw Object.assign(new Error(`UpdateService returned no service for "${service}"`), {
+      name: "UpstreamResponseError",
+    });
+  }
+  return toServiceDetail(res.service);
 }
 
 export async function deleteService(
@@ -202,6 +221,5 @@ export async function deleteService(
   force: boolean,
 ): Promise<void> {
   await clients.ecs().send(new DeleteServiceCommand({ cluster, service, force }));
-  cache.invalidate(`services:`);
-  cache.invalidate(`clusters:`);
+  invalidateServiceReads(cache);
 }

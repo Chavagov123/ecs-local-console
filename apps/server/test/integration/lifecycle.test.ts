@@ -1,14 +1,16 @@
 /**
  * End-to-end lifecycle test against a real AWS-compatible endpoint.
  *
- * Runs only when RUN_INTEGRATION=1. Point AWS_ENDPOINT_URL at a live emulator:
- *   - moto:       python -m moto.server -p 5001   (no Docker needed)
- *   - LocalStack: pnpm dev:stack                  (port 4566)
- *
+ * Runs only when RUN_INTEGRATION=1:
  *   RUN_INTEGRATION=1 AWS_ENDPOINT_URL=http://localhost:5001 pnpm --filter @ecs-local-console/server test
  *
  * Exercises the full request path: HTTP -> Fastify route -> AWS SDK v3 -> emulator
  * and back, including List*->Describe* hydration and error normalization.
+ *
+ * TARGET: moto (`python -m moto.server -p 5001`) — no Docker required, which is
+ * what CI runs. It is *not* currently portable to LocalStack: the run/stop step
+ * depends on a moto-specific launchType/networkMode pairing (see the note on
+ * that test). Retargeting to LocalStack means adjusting that one payload.
  */
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -18,8 +20,12 @@ const RUN = process.env.RUN_INTEGRATION === "1";
 const ENDPOINT = process.env.AWS_ENDPOINT_URL ?? "http://localhost:5001";
 const suite = RUN ? describe : describe.skip;
 
-const CLUSTER = `elc-e2e-${Date.now()}`;
-const FAMILY = `elc-e2e-web`;
+// Both names are uniquified: task-definition families are never really deleted
+// (deregister only marks a revision INACTIVE), so a fixed family would collide
+// with earlier runs against a long-lived LocalStack and shift every revision.
+const RUN_ID = Date.now();
+const CLUSTER = `elc-e2e-${RUN_ID}`;
+const FAMILY = `elc-e2e-web-${RUN_ID}`;
 
 suite(`lifecycle @ ${ENDPOINT}`, () => {
   let app: FastifyInstance;
@@ -36,7 +42,7 @@ suite(`lifecycle @ ${ENDPOINT}`, () => {
     });
     const health = await app.inject({ method: "GET", url: "/api/health" });
     if (!health.json().reachable) {
-      throw new Error(`No emulator reachable at ${ENDPOINT} — start moto or LocalStack first.`);
+      throw new Error(`No emulator reachable at ${ENDPOINT} — start moto first.`);
     }
   });
 
@@ -60,13 +66,15 @@ suite(`lifecycle @ ${ENDPOINT}`, () => {
     expect(list.json().map((c: { name: string }) => c.name)).toContain(CLUSTER);
   });
 
-  it("rejects an invalid task definition with a 400 from the emulator", async () => {
+  it("surfaces the emulator's own validation as a normalized 400", async () => {
+    // The shared zod schema deliberately leaves memory optional (it's only
+    // required per-container, which the emulator enforces), so this exercises
+    // the upstream-error path rather than local validation.
     const res = await app.inject({
       method: "POST",
       url: "/api/task-definitions",
       payload: { family: FAMILY, containerDefinitions: [{ name: "app", image: "nginx" }] },
     });
-    // moto/LocalStack both require memory or memoryReservation on the container.
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe("INVALID_PARAMETER");
   });
@@ -118,15 +126,24 @@ suite(`lifecycle @ ${ENDPOINT}`, () => {
     expect(res.json().desiredCount).toBe(4);
   });
 
-  it("runs and stops a standalone FARGATE task", async () => {
+  it("runs and stops a standalone task", async () => {
+    // NOTE: this payload is deliberately moto-shaped, not ECS-canonical.
+    // Real ECS pairs launchType FARGATE with networkMode "awsvpc" — but on
+    // moto 5.2.3 that path raises AttributeError ('NetworkInterface' has no
+    // 'private_dns_name'), and launchType EC2 needs registered container
+    // instances moto has none of. The bridge task definition above with
+    // FARGATE is the only combination moto accepts. If this suite is ever
+    // pointed at LocalStack, switch to an awsvpc task definition plus a real
+    // subnet/security group.
     const run = await app.inject({
       method: "POST",
       url: `/api/clusters/${CLUSTER}/tasks`,
       payload: { taskDefinition: `${FAMILY}:1`, count: 1, launchType: "FARGATE" },
     });
     expect(run.statusCode).toBe(201);
-    const tasks = run.json();
+    const { tasks, failures } = run.json();
     expect(tasks.length).toBe(1);
+    expect(failures).toEqual([]);
     const taskId = tasks[0].taskId as string;
 
     const describe = await app.inject({

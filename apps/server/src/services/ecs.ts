@@ -16,7 +16,7 @@ function tagsToRecord(tags: { key?: string; value?: string }[] | undefined): Rec
 }
 
 /** Some emulators briefly report negative counts during churn; never surface those. */
-const nonNeg = (n: number | undefined): number => Math.max(0, n ?? 0);
+export const nonNeg = (n: number | undefined): number => Math.max(0, n ?? 0);
 
 export function toClusterSummary(c: Cluster): ClusterSummary {
   return {

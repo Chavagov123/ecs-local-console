@@ -42,7 +42,11 @@ jobs:
       - name: Start moto
         run: |
           nohup python -m moto.server -p 5001 >/tmp/moto.log 2>&1 &
-          for i in $(seq 1 20); do curl -sf http://localhost:5001/ && break || sleep 1; done
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5001/moto-api/ >/dev/null && exit 0
+            sleep 1
+          done
+          echo "moto did not become ready:" && cat /tmp/moto.log && exit 1
       - run: pnpm --filter @ecs-local-console/server test:integration
         env:
           AWS_ENDPOINT_URL: http://localhost:5001

@@ -7,7 +7,12 @@ import {
   type RunTaskCommandInput,
   type Task,
 } from "@aws-sdk/client-ecs";
-import type { TaskContainer, TaskDetail, TaskSummary } from "@ecs-local-console/shared";
+import type {
+  RunTaskResult,
+  TaskContainer,
+  TaskDetail,
+  TaskSummary,
+} from "@ecs-local-console/shared";
 import type { ClientRegistry } from "../aws/clients.js";
 import type { TtlCache } from "./cache.js";
 import { chunk } from "./ecs.js";
@@ -155,15 +160,26 @@ export async function runTask(
   cache: TtlCache,
   cluster: string,
   input: Omit<RunTaskCommandInput, "cluster">,
-): Promise<TaskSummary[]> {
+): Promise<RunTaskResult> {
   const res = await clients.ecs().send(new RunTaskCommand({ ...input, cluster }));
   cache.invalidate(`tasks:`);
   cache.invalidate(`clusters:`);
-  if (res.failures && res.failures.length > 0 && (res.tasks ?? []).length === 0) {
-    const f = res.failures[0];
-    throw Object.assign(new Error(f?.reason ?? "RunTask failed"), { name: "InvalidParameterException" });
+
+  const tasks = (res.tasks ?? []).map(toTaskSummary);
+  const failures = (res.failures ?? []).map((f) => ({
+    arn: f.arn,
+    reason: f.reason ?? "unknown",
+    detail: f.detail,
+  }));
+
+  // Nothing started at all — this is an error, not a partial success.
+  if (tasks.length === 0) {
+    const reason = failures[0]?.reason ?? "ECS did not start any task";
+    throw Object.assign(new Error(reason), { name: "InvalidParameterException" });
   }
-  return (res.tasks ?? []).map(toTaskSummary);
+  // Otherwise return both: ECS routinely places some copies and rejects others
+  // (e.g. RESOURCE:MEMORY), and dropping the failures would hide that.
+  return { tasks, failures };
 }
 
 export async function stopTask(
@@ -175,8 +191,21 @@ export async function stopTask(
 ): Promise<TaskSummary> {
   const res = await clients
     .ecs()
-    .send(new StopTaskCommand({ cluster, task: taskId, reason: reason ?? "Stopped from ECS Local Console" }));
+    .send(
+      new StopTaskCommand({
+        cluster,
+        task: taskId,
+        reason: reason ?? "Stopped from ECS Local Console",
+      }),
+    );
   cache.invalidate(`tasks:`);
   cache.invalidate(`clusters:`);
-  return toTaskSummary(res.task ?? {});
+  if (!res.task) {
+    // The call was accepted but nothing was echoed back — don't report a
+    // successful stop of a task we can't describe.
+    throw Object.assign(new Error(`Task ${taskId} was not returned by StopTask`), {
+      name: "TaskNotFoundException",
+    });
+  }
+  return toTaskSummary(res.task);
 }

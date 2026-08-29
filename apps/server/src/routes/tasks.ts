@@ -27,6 +27,11 @@ const runSchema = z.object({
   overrides: z.record(z.any()).optional(),
 });
 
+// AWS caps StopTask `reason` at 255 characters.
+const stopSchema = z.object({
+  reason: z.string().max(255).optional(),
+});
+
 export const taskRoutes: FastifyPluginAsync = async (app) => {
   const endpoint = () => app.configStore.get().endpoint;
 
@@ -69,16 +74,26 @@ export const taskRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  app.delete<{ Params: { cluster: string; taskId: string }; Body: { reason?: string } }>(
+  app.delete<{ Params: { cluster: string; taskId: string } }>(
     "/clusters/:cluster/tasks/:taskId",
-    async (req) => {
+    async (req, reply) => {
+      const parsed = stopSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: {
+            code: "INVALID_PARAMETER",
+            message: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
+            retryable: false,
+          },
+        });
+      }
       try {
         return await stopTask(
           app.clients,
           app.cache,
           req.params.cluster,
           req.params.taskId,
-          (req.body as { reason?: string } | undefined)?.reason,
+          parsed.data.reason,
         );
       } catch (err) {
         throw normalizeAwsError(err, endpoint());

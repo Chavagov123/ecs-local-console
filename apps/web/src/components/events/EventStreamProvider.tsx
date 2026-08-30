@@ -131,9 +131,9 @@ export function EventStreamProvider({ children }: { children: ReactNode }) {
     });
     es.onopen = () => setStatus("open");
     es.onerror = () => {
-      // EventSource reconnects itself (server sends `retry:`). Until it does,
-      // the queries fall back to polling.
-      setStatus((s) => (s === "open" ? "polling" : "polling"));
+      // EventSource reconnects itself (the server sends `retry:`). Until a frame
+      // arrives again, the react-query `refetchInterval`s keep the UI fresh.
+      setStatus("polling");
     };
   }, [bump, pushEvent]);
 

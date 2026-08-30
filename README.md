@@ -7,10 +7,12 @@ Works against anything that speaks the AWS ECS API on a configurable endpoint:
 **LocalStack**, **[MiniStack](https://ministack.org)** (MIT-licensed, fully free), Moto, or
 real AWS.
 
-> Why this exists: LocalStack's own resource browser only does shallow cluster / task-def
-> management and needs a LocalStack account; LocalStack Desktop is paid; the open-source
-> browsers (StackPort, GuiStack) don't cover ECS at all. This is a dedicated, free ECS
-> console.
+> Why this exists: LocalStack's own **Resource Browser** does cover ECS now — but it needs a
+> LocalStack account and runs as a hosted web app. This is the local-first alternative:
+> **no account, one `docker compose up`, MIT-licensed and forkable**, with an ECS-specific
+> read/write/observe experience — including a **live reconciliation view** (watch the
+> scheduler drive `running` toward `desired`) that doesn't exist anywhere else. It also
+> points at MiniStack, Moto, or real AWS unchanged.
 
 ## Status
 
@@ -36,6 +38,19 @@ Every write is covered by a lifecycle test against a real ECS API (moto) in CI.
 
 **Not yet:** a live SSE reconciliation stream + animated view, a CloudWatch Logs viewer
 (both v0.3.0); light/dark theme + ⌘K palette + copy-as-CLI (v0.4.0).
+
+## Alternatives
+
+- **[LocalStack Resource Browser](https://app.localstack.cloud)** — LocalStack's own web app.
+  Covers ECS (clusters, task definitions, services, tasks) plus every other service, and it's
+  the right choice if you're fine signing in and you want one browser for your whole stack.
+  Requires a LocalStack account; hosted (your browser talks to `app.localstack.cloud`).
+- **LocalStack Desktop / Docker extension** — paid, LocalStack-only.
+- **StackPort, GuiStack** — free open-source stack browsers, but no ECS coverage.
+
+Reach for **this** when you want: no account and nothing hosted, an ECS-focused view
+(deployment timeline, decoded stopped-reasons, a task-def editor, the reconciliation view),
+the same console across LocalStack / MiniStack / Moto / real AWS, or a codebase you can fork.
 
 ## Run it
 

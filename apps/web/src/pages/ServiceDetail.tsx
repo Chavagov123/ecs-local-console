@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useService, useServiceTasks } from "@/api/services";
 import { InfoHint } from "@/components/InfoHint";
+import { ServiceActions } from "@/components/services/ServiceActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
 import { TaskTable } from "@/components/TaskTable";
@@ -33,15 +34,18 @@ export function ServiceDetail() {
             {cluster}
           </Link>
         </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{service}</h1>
-          {data && <StatusBadge status={data.status} kind="service" />}
-          {data?.deploymentInProgress && (
-            <span className="flex items-center gap-1">
-              <StatusBadge status="IN_PROGRESS" kind="deployment" pulse />
-              <InfoHint hint="DEPLOYMENT_IN_PROGRESS" />
-            </span>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold tracking-tight">{service}</h1>
+            {data && <StatusBadge status={data.status} kind="service" />}
+            {data?.deploymentInProgress && (
+              <span className="flex items-center gap-1">
+                <StatusBadge status="IN_PROGRESS" kind="deployment" pulse />
+                <InfoHint hint="DEPLOYMENT_IN_PROGRESS" />
+              </span>
+            )}
+          </div>
+          {data && <ServiceActions svc={data} />}
         </div>
       </div>
 

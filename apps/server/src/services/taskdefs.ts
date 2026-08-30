@@ -12,7 +12,13 @@ import type {
   TaskDefRevisionSummary,
 } from "@ecs-local-console/shared";
 import type { ClientRegistry } from "../aws/clients.js";
+import { chunk } from "./ecs.js";
 import type { TtlCache } from "./cache.js";
+
+/** Task-definition listings change rarely; a longer TTL keeps the N+1 fan-out off the hot path. */
+const TASKDEF_LIST_TTL = 30_000;
+/** How many revisions to hydrate with a Describe on the list view (newest first). */
+const REVISION_DETAIL_CAP = 20;
 
 function revFromArn(arn: string | undefined): number {
   if (!arn) return 0;
@@ -45,32 +51,50 @@ export async function listFamilies(
   clients: ClientRegistry,
   cache: TtlCache,
 ): Promise<TaskDefFamily[]> {
-  return cache.wrap("taskdefs:families", async () => {
-    const ecs = clients.ecs();
-    const families: string[] = [];
-    let nextToken: string | undefined;
-    do {
-      const page = await ecs.send(new ListTaskDefinitionFamiliesCommand({ status: "ALL", nextToken }));
-      families.push(...(page.families ?? []));
-      nextToken = page.nextToken;
-    } while (nextToken);
+  return cache.wrap(
+    "taskdefs:families",
+    async () => {
+      const ecs = clients.ecs();
+      const families: string[] = [];
+      let nextToken: string | undefined;
+      do {
+        const page = await ecs.send(
+          new ListTaskDefinitionFamiliesCommand({ status: "ALL", nextToken }),
+        );
+        families.push(...(page.families ?? []));
+        nextToken = page.nextToken;
+      } while (nextToken);
 
-    // One ListTaskDefinitions per family to get the latest revision + active count.
-    const out: TaskDefFamily[] = [];
-    for (const family of families.sort()) {
-      const active = await ecs.send(
-        new ListTaskDefinitionsCommand({ familyPrefix: family, status: "ACTIVE", sort: "DESC" }),
-      );
-      const arns = active.taskDefinitionArns ?? [];
-      out.push({
-        family,
-        latestRevision: arns[0] ? revFromArn(arns[0]) : undefined,
-        activeRevisions: arns.length,
-        status: arns.length > 0 ? "ACTIVE" : "INACTIVE",
-      });
-    }
-    return out;
-  });
+      // One ListTaskDefinitions per family for latest revision + active count — still N+1,
+      // but parallelised (bounded) and behind a 30s TTL so tab-fanout can't amplify it.
+      const out: TaskDefFamily[] = [];
+      for (const group of chunk(families.sort(), 10)) {
+        const results = await Promise.all(
+          group.map((family) =>
+            ecs
+              .send(
+                new ListTaskDefinitionsCommand({
+                  familyPrefix: family,
+                  status: "ACTIVE",
+                  sort: "DESC",
+                }),
+              )
+              .then((active) => ({ family, arns: active.taskDefinitionArns ?? [] })),
+          ),
+        );
+        for (const { family, arns } of results) {
+          out.push({
+            family,
+            latestRevision: arns[0] ? revFromArn(arns[0]) : undefined,
+            activeRevisions: arns.length,
+            status: arns.length > 0 ? "ACTIVE" : "INACTIVE",
+          });
+        }
+      }
+      return out;
+    },
+    TASKDEF_LIST_TTL,
+  );
 }
 
 export async function listRevisions(
@@ -78,28 +102,36 @@ export async function listRevisions(
   cache: TtlCache,
   family: string,
 ): Promise<TaskDefRevisionSummary[]> {
-  return cache.wrap(`taskdefs:revisions:${family}`, async () => {
-    const ecs = clients.ecs();
-    const arns: string[] = [];
-    let nextToken: string | undefined;
-    for (const status of ["ACTIVE", "INACTIVE"] as const) {
-      do {
-        const page = await ecs.send(
-          new ListTaskDefinitionsCommand({ familyPrefix: family, status, sort: "DESC", nextToken }),
+  return cache.wrap(
+    `taskdefs:revisions:${family}`,
+    async () => {
+      const ecs = clients.ecs();
+      const arns: string[] = [];
+      let nextToken: string | undefined;
+      for (const status of ["ACTIVE", "INACTIVE"] as const) {
+        do {
+          const page = await ecs.send(
+            new ListTaskDefinitionsCommand({ familyPrefix: family, status, sort: "DESC", nextToken }),
+          );
+          arns.push(...(page.taskDefinitionArns ?? []));
+          nextToken = page.nextToken;
+        } while (nextToken);
+      }
+      // Sorted DESC per bucket; take the newest N and hydrate them in parallel.
+      const byRevisionDesc = arns.sort((a, b) => revFromArn(b) - revFromArn(a));
+      const out: TaskDefRevisionSummary[] = [];
+      for (const group of chunk(byRevisionDesc.slice(0, REVISION_DETAIL_CAP), 10)) {
+        const described = await Promise.all(
+          group.map((arn) =>
+            ecs.send(new DescribeTaskDefinitionCommand({ taskDefinition: arn })),
+          ),
         );
-        arns.push(...(page.taskDefinitionArns ?? []));
-        nextToken = page.nextToken;
-      } while (nextToken);
-    }
-
-    // Describe each revision (LocalStack lists are small; cap to a sane number).
-    const out: TaskDefRevisionSummary[] = [];
-    for (const arn of arns.slice(0, 100)) {
-      const d = await ecs.send(new DescribeTaskDefinitionCommand({ taskDefinition: arn }));
-      if (d.taskDefinition) out.push(toRevisionSummary(d.taskDefinition));
-    }
-    return out;
-  });
+        for (const d of described) if (d.taskDefinition) out.push(toRevisionSummary(d.taskDefinition));
+      }
+      return out;
+    },
+    TASKDEF_LIST_TTL,
+  );
 }
 
 export async function describeTaskDef(

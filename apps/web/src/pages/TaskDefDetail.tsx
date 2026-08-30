@@ -1,9 +1,8 @@
-import { ArrowLeft, Copy, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Copy, Pencil, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import type { ApiError } from "@/api/client";
 import { useDeregisterTaskDef, useRegisterTaskDef, useTaskDef } from "@/api/task-definitions";
+import { MutationButton } from "@/components/MutationButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ErrorState, LoadingRows } from "@/components/States";
 import {
@@ -20,26 +19,26 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { stripReadOnlyTaskDefFields } from "@ecs-local-console/shared";
+import { useMutationToast } from "@/lib/mutation-toast";
 
 export function TaskDefDetail() {
   const { family = "", revision = "" } = useParams();
   const navigate = useNavigate();
   const { data, isLoading, isError, error } = useTaskDef(family, revision);
-  const register = useRegisterTaskDef();
-  const deregister = useDeregisterTaskDef();
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const register = useMutationToast(useRegisterTaskDef(), {
+    success: (d) => `Registered ${d.family}:${d.revision}`,
+  });
+  const deregister = useMutationToast(useDeregisterTaskDef(), { success: "Deregistered" });
 
   async function registerCopy() {
     if (!data) return;
     try {
-      const next = await register.mutateAsync(
+      const next = await register.run(
         stripReadOnlyTaskDefFields(data.json) as Record<string, unknown>,
       );
-      toast.success(`Registered ${next.family}:${next.revision}`);
       navigate(`/task-definitions/${next.family}/${next.revision}`);
-    } catch (err) {
-      const e = err as ApiError;
-      toast.error(e.message, { description: e.hint });
+    } catch {
+      /* toast shown */
     }
   }
 
@@ -59,12 +58,23 @@ export function TaskDefDetail() {
             </h1>
             {data && <StatusBadge status={data.status} kind="service" />}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={registerCopy} disabled={register.isPending}>
-              <Copy className="size-4" />
-              Register as new revision
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/task-definitions/${family}/${revision}/edit`}>
+                <Pencil className="size-4" />
+                Edit as new revision
+              </Link>
             </Button>
-            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <MutationButton
+              variant="outline"
+              size="sm"
+              pending={register.isPending}
+              onClick={registerCopy}
+            >
+              <Copy className="size-4" />
+              Clone as-is
+            </MutationButton>
+            <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" disabled={data?.status === "INACTIVE"}>
                   <Trash2 className="size-4" />
@@ -84,15 +94,9 @@ export function TaskDefDetail() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction
-                    onClick={async () => {
-                      try {
-                        await deregister.mutateAsync({ family, revision: Number(revision) });
-                        toast.success("Deregistered");
-                      } catch (err) {
-                        const e = err as ApiError;
-                        toast.error(e.message, { description: e.hint });
-                      }
-                    }}
+                    onClick={() =>
+                      deregister.run({ family, revision: Number(revision) }).catch(() => {})
+                    }
                   >
                     Deregister
                   </AlertDialogAction>

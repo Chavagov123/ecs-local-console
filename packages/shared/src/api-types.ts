@@ -163,6 +163,32 @@ export interface NetworkConfiguration {
   };
 }
 
+export type LaunchType = "EC2" | "FARGATE" | "EXTERNAL";
+
+export interface AwsvpcConfigurationInput {
+  subnets: string[];
+  securityGroups?: string[];
+  assignPublicIp?: "ENABLED" | "DISABLED";
+}
+
+export interface CreateServiceRequest {
+  serviceName: string;
+  taskDefinition: string;
+  desiredCount?: number;
+  launchType?: LaunchType;
+  schedulingStrategy?: "REPLICA" | "DAEMON";
+  networkConfiguration?: { awsvpcConfiguration: AwsvpcConfigurationInput };
+  role?: string;
+  tags?: Record<string, string>;
+}
+
+export interface UpdateServiceRequest {
+  desiredCount?: number;
+  taskDefinition?: string;
+  forceNewDeployment?: boolean;
+  networkConfiguration?: { awsvpcConfiguration: AwsvpcConfigurationInput };
+}
+
 // ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
@@ -224,6 +250,16 @@ export interface RunTaskResult {
   failures: EcsFailure[];
 }
 
+export interface RunTaskRequest {
+  taskDefinition: string;
+  count?: number;
+  launchType?: LaunchType;
+  group?: string;
+  startedBy?: string;
+  networkConfiguration?: { awsvpcConfiguration: AwsvpcConfigurationInput };
+  overrides?: Record<string, unknown>;
+}
+
 export interface TaskDetail extends TaskSummary {
   connectivity?: string;
   platformVersion?: string;
@@ -266,6 +302,42 @@ export interface TaskDefDetail extends TaskDefRevisionSummary {
   /** The raw RegisterTaskDefinition-shaped JSON, for the editor and diff views. */
   json: Record<string, unknown>;
   tags: Record<string, string>;
+}
+
+// ---------------------------------------------------------------------------
+// Networking / IAM (form pickers)
+// ---------------------------------------------------------------------------
+
+export interface Vpc {
+  vpcId: string;
+  cidrBlock?: string;
+  isDefault: boolean;
+  name?: string;
+}
+
+export interface Subnet {
+  subnetId: string;
+  vpcId?: string;
+  cidrBlock?: string;
+  availabilityZone?: string;
+  mapPublicIpOnLaunch: boolean;
+  name?: string;
+}
+
+export interface SecurityGroup {
+  groupId: string;
+  groupName?: string;
+  vpcId?: string;
+  description?: string;
+}
+
+export interface IamRole {
+  roleName: string;
+  arn: string;
+  path?: string;
+  createDate?: string;
+  /** Best-effort classification from the trust policy / name. */
+  kind: "task" | "execution" | "other";
 }
 
 // ---------------------------------------------------------------------------

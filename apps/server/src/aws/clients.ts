@@ -1,8 +1,11 @@
+import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
+import { EC2Client } from "@aws-sdk/client-ec2";
 import { ECSClient } from "@aws-sdk/client-ecs";
+import { IAMClient } from "@aws-sdk/client-iam";
 import { fromIni } from "@aws-sdk/credential-providers";
 import type { AwsConfig, RuntimeConfigStore } from "../config.js";
 
-type ClientKind = "ecs";
+type ClientKind = "ecs" | "ec2" | "iam" | "logs";
 
 /**
  * Lazily constructs and caches AWS SDK clients for the current runtime config.
@@ -35,15 +38,31 @@ export class ClientRegistry {
     return [kind, cfg.endpoint, cfg.region, cfg.profile ?? "static"].join("|");
   }
 
-  ecs(): ECSClient {
+  private get<T>(kind: ClientKind, make: (args: ReturnType<ClientRegistry["baseArgs"]>) => T): T {
     const cfg = this.store.get();
-    const key = this.key("ecs", cfg);
-    let client = this.cache.get(key) as ECSClient | undefined;
+    const key = this.key(kind, cfg);
+    let client = this.cache.get(key) as T | undefined;
     if (!client) {
-      client = new ECSClient(this.baseArgs(cfg));
+      client = make(this.baseArgs(cfg));
       this.cache.set(key, client);
     }
     return client;
+  }
+
+  ecs(): ECSClient {
+    return this.get("ecs", (a) => new ECSClient(a));
+  }
+
+  ec2(): EC2Client {
+    return this.get("ec2", (a) => new EC2Client(a));
+  }
+
+  iam(): IAMClient {
+    return this.get("iam", (a) => new IAMClient(a));
+  }
+
+  logs(): CloudWatchLogsClient {
+    return this.get("logs", (a) => new CloudWatchLogsClient(a));
   }
 
   clear(): void {

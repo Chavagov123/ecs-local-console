@@ -15,7 +15,7 @@ export class TtlCache {
 
   constructor(private readonly ttlMs = 1500) {}
 
-  async wrap<T>(key: string, produce: () => Promise<T>): Promise<T> {
+  async wrap<T>(key: string, produce: () => Promise<T>, ttlMs = this.ttlMs): Promise<T> {
     const hit = this.store.get(key);
     if (hit && hit.expiresAt > Date.now()) return hit.value as T;
 
@@ -27,7 +27,7 @@ export class TtlCache {
       try {
         const value = await produce();
         if (this.generation === generation) {
-          this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
+          this.store.set(key, { value, expiresAt: Date.now() + ttlMs });
         }
         return value;
       } finally {

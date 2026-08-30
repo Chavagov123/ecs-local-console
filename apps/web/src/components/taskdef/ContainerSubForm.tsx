@@ -16,6 +16,12 @@ import type { TaskDefForm } from "./form-types";
 
 type ContainerPath = `containerDefinitions.${number}`;
 
+/** Empty number inputs must become `undefined`, not `NaN` (which fails zod). */
+const asOptionalNumber = {
+  setValueAs: (v: unknown) =>
+    v === "" || v === null || v === undefined ? undefined : Number(v),
+} as const;
+
 export function ContainerSubForm({
   index,
   onRemove,
@@ -48,10 +54,10 @@ export function ContainerSubForm({
             <Input {...register(`${base}.image`)} placeholder="nginx:latest" />
           </Row>
           <Row label="Memory (MiB)">
-            <Input type="number" {...register(`${base}.memory`, { valueAsNumber: true })} />
+            <Input type="number" {...register(`${base}.memory`, asOptionalNumber)} />
           </Row>
           <Row label="CPU units">
-            <Input type="number" {...register(`${base}.cpu`, { valueAsNumber: true })} />
+            <Input type="number" {...register(`${base}.cpu`, asOptionalNumber)} />
           </Row>
         </div>
 
@@ -97,13 +103,13 @@ function PortMappings({ base }: { base: ContainerPath }) {
             type="number"
             placeholder="container"
             className="h-8"
-            {...register(`${base}.portMappings.${i}.containerPort`, { valueAsNumber: true })}
+            {...register(`${base}.portMappings.${i}.containerPort`, asOptionalNumber)}
           />
           <Input
             type="number"
             placeholder="host (0 = dynamic)"
             className="h-8"
-            {...register(`${base}.portMappings.${i}.hostPort`, { valueAsNumber: true })}
+            {...register(`${base}.portMappings.${i}.hostPort`, asOptionalNumber)}
           />
           <Button type="button" variant="ghost" size="icon" className="size-8" onClick={() => remove(i)}>
             <Trash2 className="size-3.5" />

@@ -25,6 +25,15 @@ afterEach(() => {
 });
 
 describe("tasks", () => {
+  it("rejects a bad query filter with 400, not 500", async () => {
+    const a = await app.inject({ method: "GET", url: "/api/clusters/demo/tasks?desiredStatus=BOGUS" });
+    expect(a.statusCode).toBe(400);
+    expect(a.json().error.code).toBe("INVALID_PARAMETER");
+    const b = await app.inject({ method: "GET", url: "/api/tasks?launchType=nope" });
+    expect(b.statusCode).toBe(400);
+    expect(ecsMock.commandCalls(ListTasksCommand)).toHaveLength(0);
+  });
+
   it("lists cluster tasks and marks transitions", async () => {
     ecsMock.on(ListTasksCommand).resolves({ taskArns: ["arn:aws:ecs:us-east-1:0:task/demo/abc"] });
     ecsMock.on(DescribeTasksCommand).resolves({

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { TtlCache } from "../../src/services/cache.js";
 
 /** A promise you can resolve from the outside. */
@@ -61,6 +61,24 @@ describe("TtlCache", () => {
     stale.resolve("old");
     await inflight;
     expect(await cache.wrap("k", async () => "new")).toBe("new");
+  });
+
+  it("honors a per-call ttlMs override", async () => {
+    let now = 1_000;
+    const spy = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      const cache = new TtlCache(100); // short default
+      let calls = 0;
+      const produce = async () => ++calls;
+      expect(await cache.wrap("k", produce, 5_000)).toBe(1);
+      now += 1_000; // past the 100ms default, well inside the 5s override
+      expect(await cache.wrap("k", produce, 5_000)).toBe(1);
+      expect(calls).toBe(1);
+      now += 5_000;
+      expect(await cache.wrap("k", produce, 5_000)).toBe(2);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("only invalidates keys matching the prefix", async () => {

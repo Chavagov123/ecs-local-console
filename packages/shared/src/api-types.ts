@@ -269,6 +269,42 @@ export interface TaskDefDetail extends TaskDefRevisionSummary {
 }
 
 // ---------------------------------------------------------------------------
+// Networking / IAM (form pickers)
+// ---------------------------------------------------------------------------
+
+export interface Vpc {
+  vpcId: string;
+  cidrBlock?: string;
+  isDefault: boolean;
+  name?: string;
+}
+
+export interface Subnet {
+  subnetId: string;
+  vpcId?: string;
+  cidrBlock?: string;
+  availabilityZone?: string;
+  mapPublicIpOnLaunch: boolean;
+  name?: string;
+}
+
+export interface SecurityGroup {
+  groupId: string;
+  groupName?: string;
+  vpcId?: string;
+  description?: string;
+}
+
+export interface IamRole {
+  roleName: string;
+  arn: string;
+  path?: string;
+  createDate?: string;
+  /** Best-effort classification from the trust policy / name. */
+  kind: "task" | "execution" | "other";
+}
+
+// ---------------------------------------------------------------------------
 // Events (SSE)
 // ---------------------------------------------------------------------------
 

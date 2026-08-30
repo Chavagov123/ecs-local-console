@@ -3,6 +3,7 @@ import { z } from "zod";
 import { normalizeAwsError } from "../aws/errors.js";
 import { listClusters } from "../services/ecs.js";
 import { describeTask, listTasks, runTask, stopTask } from "../services/tasks.js";
+import { parse } from "./validate.js";
 
 const listQuery = z.object({
   desiredStatus: z.enum(["RUNNING", "PENDING", "STOPPED"]).optional(),
@@ -35,8 +36,9 @@ const stopSchema = z.object({
 export const taskRoutes: FastifyPluginAsync = async (app) => {
   const endpoint = () => app.configStore.get().endpoint;
 
-  app.get<{ Params: { cluster: string } }>("/clusters/:cluster/tasks", async (req) => {
-    const filters = listQuery.parse(req.query);
+  app.get<{ Params: { cluster: string } }>("/clusters/:cluster/tasks", async (req, reply) => {
+    const filters = parse(listQuery, req.query, reply);
+    if (!filters) return reply;
     try {
       return await listTasks(app.clients, app.cache, req.params.cluster, filters);
     } catch (err) {
@@ -45,18 +47,10 @@ export const taskRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.post<{ Params: { cluster: string } }>("/clusters/:cluster/tasks", async (req, reply) => {
-    const parsed = runSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({
-        error: {
-          code: "INVALID_PARAMETER",
-          message: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
-          retryable: false,
-        },
-      });
-    }
+    const body = parse(runSchema, req.body, reply);
+    if (!body) return reply;
     try {
-      const tasks = await runTask(app.clients, app.cache, req.params.cluster, parsed.data);
+      const tasks = await runTask(app.clients, app.cache, req.params.cluster, body);
       return reply.code(201).send(tasks);
     } catch (err) {
       throw normalizeAwsError(err, endpoint());
@@ -77,23 +71,15 @@ export const taskRoutes: FastifyPluginAsync = async (app) => {
   app.delete<{ Params: { cluster: string; taskId: string } }>(
     "/clusters/:cluster/tasks/:taskId",
     async (req, reply) => {
-      const parsed = stopSchema.safeParse(req.body ?? {});
-      if (!parsed.success) {
-        return reply.code(400).send({
-          error: {
-            code: "INVALID_PARAMETER",
-            message: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; "),
-            retryable: false,
-          },
-        });
-      }
+      const body = parse(stopSchema, req.body ?? {}, reply);
+      if (!body) return reply;
       try {
         return await stopTask(
           app.clients,
           app.cache,
           req.params.cluster,
           req.params.taskId,
-          parsed.data.reason,
+          body.reason,
         );
       } catch (err) {
         throw normalizeAwsError(err, endpoint());
@@ -102,8 +88,9 @@ export const taskRoutes: FastifyPluginAsync = async (app) => {
   );
 
   // Cross-cluster task list for the top-level /tasks page.
-  app.get("/tasks", async (req) => {
-    const filters = listQuery.parse(req.query);
+  app.get("/tasks", async (req, reply) => {
+    const filters = parse(listQuery, req.query, reply);
+    if (!filters) return reply;
     try {
       const clusters = await listClusters(app.clients, app.cache);
       const perCluster = await Promise.all(

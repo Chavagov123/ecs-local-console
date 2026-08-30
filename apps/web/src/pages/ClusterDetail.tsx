@@ -1,14 +1,14 @@
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
-import type { ApiError } from "@/api/client";
 import { useCluster, useDeleteCluster } from "@/api/clusters";
 import { useServices } from "@/api/services";
 import { useClusterTasks } from "@/api/tasks";
 import { InfoHint } from "@/components/InfoHint";
+import { CreateServiceDialog } from "@/components/services/CreateServiceDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
+import { RunTaskDialog } from "@/components/tasks/RunTaskDialog";
 import { TaskTable } from "@/components/TaskTable";
 import {
   AlertDialog,
@@ -24,6 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMutationToast } from "@/lib/mutation-toast";
 import {
   Table,
   TableBody,
@@ -35,11 +36,10 @@ import {
 import { taskDefLabel } from "@/lib/format";
 
 function DeleteClusterButton({ cluster }: { cluster: string }) {
-  const del = useDeleteCluster();
+  const del = useMutationToast(useDeleteCluster(), { success: `Cluster "${cluster}" deleted` });
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog>
       <AlertDialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Trash2 className="size-4" />
@@ -48,7 +48,7 @@ function DeleteClusterButton({ cluster }: { cluster: string }) {
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete cluster “{cluster}”?</AlertDialogTitle>
+          <AlertDialogTitle>Delete cluster &ldquo;{cluster}&rdquo;?</AlertDialogTitle>
           <AlertDialogDescription>
             ECS refuses this if the cluster still has active services or running tasks.
           </AlertDialogDescription>
@@ -56,17 +56,7 @@ function DeleteClusterButton({ cluster }: { cluster: string }) {
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            onClick={async () => {
-              try {
-                await del.mutateAsync(cluster);
-                toast.success(`Cluster “${cluster}” deleted`);
-                navigate("/clusters");
-              } catch (err) {
-                const e = err as ApiError;
-                toast.error(e.message, { description: e.hint });
-                setOpen(false);
-              }
-            }}
+            onClick={() => del.run(cluster).then(() => navigate("/clusters")).catch(() => {})}
           >
             Delete
           </AlertDialogAction>
@@ -188,10 +178,17 @@ export function ClusterDetail() {
       ) : null}
 
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
-        <TabsList>
-          <TabsTrigger value="services">Services</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="services">Services</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+          </TabsList>
+          {tab === "services" ? (
+            <CreateServiceDialog cluster={cluster} />
+          ) : (
+            <RunTaskDialog cluster={cluster} />
+          )}
+        </div>
         <TabsContent value="services" className="mt-4">
           <Card>
             <CardContent className="p-0">

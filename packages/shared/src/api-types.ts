@@ -163,6 +163,32 @@ export interface NetworkConfiguration {
   };
 }
 
+export type LaunchType = "EC2" | "FARGATE" | "EXTERNAL";
+
+export interface AwsvpcConfigurationInput {
+  subnets: string[];
+  securityGroups?: string[];
+  assignPublicIp?: "ENABLED" | "DISABLED";
+}
+
+export interface CreateServiceRequest {
+  serviceName: string;
+  taskDefinition: string;
+  desiredCount?: number;
+  launchType?: LaunchType;
+  schedulingStrategy?: "REPLICA" | "DAEMON";
+  networkConfiguration?: { awsvpcConfiguration: AwsvpcConfigurationInput };
+  role?: string;
+  tags?: Record<string, string>;
+}
+
+export interface UpdateServiceRequest {
+  desiredCount?: number;
+  taskDefinition?: string;
+  forceNewDeployment?: boolean;
+  networkConfiguration?: { awsvpcConfiguration: AwsvpcConfigurationInput };
+}
+
 // ---------------------------------------------------------------------------
 // Tasks
 // ---------------------------------------------------------------------------
@@ -222,6 +248,16 @@ export interface EcsFailure {
 export interface RunTaskResult {
   tasks: TaskSummary[];
   failures: EcsFailure[];
+}
+
+export interface RunTaskRequest {
+  taskDefinition: string;
+  count?: number;
+  launchType?: LaunchType;
+  group?: string;
+  startedBy?: string;
+  networkConfiguration?: { awsvpcConfiguration: AwsvpcConfigurationInput };
+  overrides?: Record<string, unknown>;
 }
 
 export interface TaskDetail extends TaskSummary {

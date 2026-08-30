@@ -5,6 +5,7 @@ import { useTask } from "@/api/tasks";
 import { InfoHint } from "@/components/InfoHint";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ErrorState, LoadingRows } from "@/components/States";
+import { StopTaskButton } from "@/components/tasks/StopTaskButton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,22 +37,23 @@ export function TaskDetail() {
             {cluster}
           </Link>
         </Button>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono text-xl font-semibold">{taskId.slice(0, 20)}</h1>
-          {data && (
-            <StatusBadge status={data.lastStatus} kind="task" pulse={data.transitioning} />
-          )}
-          {data?.transitioning && (
-            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              → {data.desiredStatus}
-              <InfoHint
-                hint={
-                  data.desiredStatus === "RUNNING"
-                    ? "PROVISIONING"
-                    : "DEPROVISIONING"
-                }
-              />
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-mono text-xl font-semibold">{taskId.slice(0, 20)}</h1>
+            {data && (
+              <StatusBadge status={data.lastStatus} kind="task" pulse={data.transitioning} />
+            )}
+            {data?.transitioning && (
+              <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                → {data.desiredStatus}
+                <InfoHint
+                  hint={data.desiredStatus === "RUNNING" ? "PROVISIONING" : "DEPROVISIONING"}
+                />
+              </span>
+            )}
+          </div>
+          {data && data.lastStatus !== "STOPPED" && (
+            <StopTaskButton cluster={cluster} taskId={taskId} />
           )}
         </div>
       </div>

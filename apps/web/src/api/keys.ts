@@ -23,4 +23,9 @@ export const qk = {
 
   logs: (group: string, stream?: string) => ["logs", group, stream ?? "*"] as const,
   logGroups: () => ["logs", "groups"] as const,
+
+  vpcs: () => ["networking", "vpcs"] as const,
+  subnets: (vpcId?: string) => ["networking", "subnets", vpcId ?? "*"] as const,
+  securityGroups: (vpcId?: string) => ["networking", "sg", vpcId ?? "*"] as const,
+  iamRoles: (kind?: string) => ["iam", "roles", kind ?? "*"] as const,
 };

@@ -40,6 +40,18 @@ export const ANNOTATIONS = {
   // Container instances
   NO_CONTAINER_INSTANCES:
     "Fargate / LocalStack tasks don't run on registered EC2 container instances, so this list is normally empty.",
+
+  // Live reconciliation
+  EVENT_STREAM_LIVE:
+    "Changes are streaming from the server as they happen. When the stream drops, the view falls back to polling every few seconds.",
+  DEPLOYMENT_COMPLETED:
+    "A deployment reaches COMPLETED once its new tasks are running and healthy and the old ones have drained.",
+  RECONCILIATION_GAUGE:
+    "The scheduler continuously works to make 'running' equal 'desired'. The bar shows running (solid), pending (striped), and the gap still to fill.",
+
+  // Logs
+  LOG_DRIVER_NON_AWSLOGS:
+    "This container doesn't use the awslogs driver, so its output isn't in CloudWatch Logs. Check the container engine directly (e.g. `docker logs`).",
 } as const;
 
 export type AnnotationKey = keyof typeof ANNOTATIONS;

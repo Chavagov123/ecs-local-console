@@ -21,8 +21,29 @@ export const qk = {
   taskDef: (family: string, revision: string | number) =>
     ["task-definitions", family, String(revision)] as const,
 
-  logs: (group: string, stream?: string) => ["logs", group, stream ?? "*"] as const,
-  logGroups: () => ["logs", "groups"] as const,
+  logGroups: (prefix?: string) => ["logs", "groups", prefix ?? ""] as const,
+  logEvents: (p: {
+    logGroup: string;
+    logStream?: string;
+    filterPattern?: string;
+    start?: number;
+    end?: number;
+  }) =>
+    [
+      "logs",
+      "events",
+      p.logGroup,
+      p.logStream ?? "*",
+      p.filterPattern ?? "",
+      p.start ?? 0,
+      p.end ?? 0,
+    ] as const,
+  taskLogConfig: (cluster: string, taskId: string) =>
+    ["clusters", cluster, "tasks", taskId, "log-config"] as const,
+  taskEnis: (cluster: string, taskId: string) =>
+    ["clusters", cluster, "tasks", taskId, "enis"] as const,
+  containerInstances: (cluster: string) =>
+    ["clusters", cluster, "container-instances"] as const,
 
   vpcs: () => ["networking", "vpcs"] as const,
   subnets: (vpcId?: string) => ["networking", "subnets", vpcId ?? "*"] as const,

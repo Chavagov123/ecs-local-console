@@ -16,28 +16,31 @@ real AWS.
 
 ## Status
 
-**v0.2.0 — full read + write.** ([changelog](https://github.com/Chavagov123/ecs-local-console/releases))
+**v0.3.0 — live reconciliation + logs.** ([changelog](https://github.com/Chavagov123/ecs-local-console/releases))
 
 Working today:
 
-- **Clusters** — list + detail (services / tasks tabs), create & delete
-- **Services** — detail (overview / deployments / events / tasks); create; a debounced
-  desired-count stepper (optimistic — the number moves instantly and rolls back on error);
-  change-revision dialog; force new deployment; delete with force. Adaptive polling speeds
-  up while a deployment rolls out
-- **Tasks** — detail (containers / network / raw JSON, stopped-reason surfaced); run a
-  standalone task (partial-placement `failures[]` shown); stop a task
+- **Live reconciliation view** — a per-service tab that streams changes over SSE and
+  animates them: a desired-vs-running gauge that fills in as the scheduler places tasks,
+  a blue/green sub-bar per deployment, and an annotated timeline ("scheduler replaced task
+  `abc123`", "deployment of `web:4` completed"). Falls back to polling if the stream drops
+- **CloudWatch Logs viewer** — a `/logs` page (group list + follow + filter + time range)
+  and a per-container **Logs** tab on each task; non-`awslogs` containers get an inline hint
+- **Clusters** — list + detail, create & delete; a container-instances view
+- **Services** — detail (overview / reconciliation / deployments / events / tasks); create;
+  an optimistic desired-count stepper; change-revision dialog; force new deployment; delete
+- **Tasks** — detail (containers / logs / network with real ENI data / raw JSON); run a
+  standalone task (`failures[]` shown); stop a task
 - **Task definitions** — families → revisions → JSON; a **Form ⇄ JSON ⇄ paste-from-CLI
   editor** (Monaco, lazy-loaded); "edit as new revision"; deregister
-- Networking pickers for subnets / security groups / IAM roles (with a "type an id"
-  fallback when the emulator doesn't implement `ec2:DescribeSubnets`)
-- Cross-cluster task list; endpoint settings + connection test
+- Networking pickers; cross-cluster task list; endpoint settings + connection test
 - Concept tooltips (what `PROVISIONING` means, why the scheduler replaced a task)
 
-Every write is covered by a lifecycle test against a real ECS API (moto) in CI.
+Every write is covered by a lifecycle test against a real ECS API (moto) in CI. The image
+is published for `linux/amd64` and `linux/arm64`.
 
-**Not yet:** a live SSE reconciliation stream + animated view, a CloudWatch Logs viewer
-(both v0.3.0); light/dark theme + ⌘K palette + copy-as-CLI (v0.4.0).
+**Not yet:** light/dark theme + ⌘K palette + copy-as-CLI + revision diff + tags editor
+(v0.4.0).
 
 ## Alternatives
 
@@ -62,7 +65,7 @@ docker compose up
 ```
 
 Open <http://localhost:4570>. This brings up LocalStack + the console together; the image
-is `ghcr.io/chavagov123/ecs-local-console` (`:latest` or a pinned `:0.2.0`).
+is `ghcr.io/chavagov123/ecs-local-console` (`:latest` or a pinned `:0.3.0`).
 
 ## How it works
 
@@ -157,14 +160,17 @@ from the Settings page:
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | `test` / `test` | dummy pair for local emulators |
 | `AWS_PROFILE` | — | use a named profile instead of the keys above |
 | `PORT` | `4570` | backend port |
+| `EVENTS_POLL_MS` | `2000` | reconciliation-engine poll interval per watched cluster (~3–4 ECS calls / interval; the engine is fully idle when no browser tab is open) |
+| `EVENTS_DISABLED` | — | set to `1` to disable the `/api/events` SSE route entirely |
 
 ### A note on LocalStack in 2026
 
 LocalStack now ships as a single image that expects an auth token, and its free "Hobby"
 tier is non-commercial. If that doesn't fit, point `AWS_ENDPOINT_URL` at **MiniStack**
-(MIT, no token, same port, real task containers) — everything in this console works against
-it. (The CloudWatch Logs viewer landing in v0.3.0 will need LocalStack's `awslogs`
-integration; MiniStack ignores the log driver.)
+(MIT, no token, same port, real task containers) — the reconciliation view and every write
+work against it. The CloudWatch Logs viewer needs the `awslogs` driver to be honoured
+(LocalStack does this; MiniStack ignores it, and the Logs tab then shows an inline hint
+instead of a stream).
 
 ## License
 

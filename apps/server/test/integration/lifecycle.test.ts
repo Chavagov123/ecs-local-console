@@ -167,6 +167,64 @@ suite(`lifecycle @ ${ENDPOINT}`, () => {
     expect(res.json().error.code).toBe("NOT_FOUND");
   });
 
+  it("registers a new revision, as the editor would", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/task-definitions",
+      payload: {
+        family: FAMILY,
+        // read-only fields the editor might carry over from a describe — must be stripped server-side
+        taskDefinitionArn: "arn:aws:ecs:us-east-1:0:task-definition/whatever:9",
+        revision: 9,
+        status: "ACTIVE",
+        networkMode: "bridge",
+        containerDefinitions: [
+          { name: "app", image: "nginx:latest", essential: true, memory: 256 },
+        ],
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().revision).toBe(2); // 1 from the earlier test, this is 2 — not 9
+    const revs = await app.inject({ method: "GET", url: `/api/task-definitions/${FAMILY}` });
+    expect(revs.json().map((r: { revision: number }) => r.revision)).toEqual(
+      expect.arrayContaining([1, 2]),
+    );
+  });
+
+  it("serves the form pickers: subnets, security groups, IAM roles", async () => {
+    // moto ships a default VPC + roles; these must return 200 with an array
+    const subnets = await app.inject({ method: "GET", url: "/api/networking/subnets" });
+    expect(subnets.statusCode).toBe(200);
+    expect(Array.isArray(subnets.json())).toBe(true);
+    expect(subnets.json().length).toBeGreaterThan(0);
+
+    const sgs = await app.inject({ method: "GET", url: "/api/networking/security-groups" });
+    expect(sgs.statusCode).toBe(200);
+    expect(Array.isArray(sgs.json())).toBe(true);
+
+    const roles = await app.inject({ method: "GET", url: "/api/iam/roles" });
+    expect(roles.statusCode).toBe(200);
+    expect(Array.isArray(roles.json())).toBe(true);
+  });
+
+  it("rejects a bad task-def before touching the emulator (zod)", async () => {
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/task-definitions",
+      payload: { family: FAMILY, requiresCompatibilities: ["FARGATE"], networkMode: "bridge" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("INVALID_PARAMETER");
+  });
+
+  it("rejects a bad query filter with 400 (not 500)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/clusters/${CLUSTER}/tasks?desiredStatus=NONSENSE`,
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it("deletes the service", async () => {
     const res = await app.inject({
       method: "DELETE",

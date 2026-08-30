@@ -16,10 +16,14 @@ real AWS.
 
 ## Status
 
-**v0.3.0 — live reconciliation + logs.** ([changelog](https://github.com/Chavagov123/ecs-local-console/releases))
+**v0.4.0 — polish.** ([changelog](https://github.com/Chavagov123/ecs-local-console/releases))
 
 Working today:
 
+- **Light + dark theme** (system-aware, no flash on reload); a **⌘K command palette**
+  (jump to any cluster / service / task-def, run core actions); **copy-as-AWS-CLI** on the
+  cluster / service / task / task-def pages; a **revision diff** view; an inline **tags
+  editor**; a header **endpoint switcher** (saved endpoints in `localStorage`)
 - **Live reconciliation view** — a per-service tab that streams changes over SSE and
   animates them: a desired-vs-running gauge that fills in as the scheduler places tasks,
   a blue/green sub-bar per deployment, and an annotated timeline ("scheduler replaced task
@@ -39,8 +43,8 @@ Working today:
 Every write is covered by a lifecycle test against a real ECS API (moto) in CI. The image
 is published for `linux/amd64` and `linux/arm64`.
 
-**Not yet:** light/dark theme + ⌘K palette + copy-as-CLI + revision diff + tags editor
-(v0.4.0).
+**Next (v1.0.0):** README screenshots + a reconciliation GIF, an `awesome-localstack` entry,
+`CONTRIBUTING.md`, issue templates.
 
 ## Alternatives
 
@@ -65,7 +69,7 @@ docker compose up
 ```
 
 Open <http://localhost:4570>. This brings up LocalStack + the console together; the image
-is `ghcr.io/chavagov123/ecs-local-console` (`:latest` or a pinned `:0.3.0`).
+is `ghcr.io/chavagov123/ecs-local-console` (`:latest` or a pinned `:0.4.0`).
 
 ## How it works
 

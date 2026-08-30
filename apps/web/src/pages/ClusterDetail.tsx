@@ -9,6 +9,7 @@ import { CreateServiceDialog } from "@/components/services/CreateServiceDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
 import { RunTaskDialog } from "@/components/tasks/RunTaskDialog";
+import { TagsEditor } from "@/components/TagsEditor";
 import { TaskTable } from "@/components/TaskTable";
 import {
   AlertDialog,
@@ -180,6 +181,8 @@ export function ClusterDetail() {
           />
         </div>
       ) : null}
+
+      {data && <TagsEditor resourceArn={data.arn} tags={data.tags} />}
 
       <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
         <div className="flex items-center justify-between">

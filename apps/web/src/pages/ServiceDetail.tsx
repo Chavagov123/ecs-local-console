@@ -2,7 +2,9 @@ import { ArrowLeft } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useService, useServiceTasks } from "@/api/services";
 import { InfoHint } from "@/components/InfoHint";
+import { CopyAsCli } from "@/components/CopyAsCli";
 import { ReconciliationPanel } from "@/components/reconciliation/ReconciliationPanel";
+import { TagsEditor } from "@/components/TagsEditor";
 import { ServiceActions } from "@/components/services/ServiceActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
@@ -46,7 +48,12 @@ export function ServiceDetail() {
               </span>
             )}
           </div>
-          {data && <ServiceActions svc={data} />}
+          {data && (
+            <div className="flex items-center gap-2">
+              <CopyAsCli resource={{ kind: "service", service: data }} />
+              <ServiceActions svc={data} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -119,6 +126,9 @@ export function ServiceDetail() {
                   <Field label="Created" value={absoluteTime(data.createdAt)} />
                 </CardContent>
               </Card>
+              <div className="mt-4">
+                <TagsEditor resourceArn={data.arn} tags={data.tags} />
+              </div>
             </TabsContent>
 
             <TabsContent value="reconciliation" className="mt-4">

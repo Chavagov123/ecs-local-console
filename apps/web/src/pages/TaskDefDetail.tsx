@@ -2,7 +2,9 @@ import { ArrowLeft, Copy, Pencil, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useDeregisterTaskDef, useRegisterTaskDef, useTaskDef } from "@/api/task-definitions";
+import { CopyAsCli } from "@/components/CopyAsCli";
 import { MutationButton } from "@/components/MutationButton";
+import { TagsEditor } from "@/components/TagsEditor";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ErrorState, LoadingRows } from "@/components/States";
 import {
@@ -59,6 +61,10 @@ export function TaskDefDetail() {
             {data && <StatusBadge status={data.status} kind="service" />}
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to={`/task-definitions/${family}/compare`}>Compare revisions</Link>
+            </Button>
+            {data && <CopyAsCli resource={{ kind: "taskDef", taskDef: data }} />}
             <Button asChild variant="outline" size="sm">
               <Link to={`/task-definitions/${family}/${revision}/edit`}>
                 <Pencil className="size-4" />
@@ -133,6 +139,8 @@ export function TaskDefDetail() {
           </CardContent>
         </Card>
       )}
+
+      {data && <TagsEditor resourceArn={data.arn} tags={data.tags} />}
     </div>
   );
 }

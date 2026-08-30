@@ -3,7 +3,9 @@ import { Fragment } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useTaskEnis, useTaskLogConfig } from "@/api/logs";
 import { useTask } from "@/api/tasks";
+import { CopyAsCli } from "@/components/CopyAsCli";
 import { InfoHint } from "@/components/InfoHint";
+import { TagsEditor } from "@/components/TagsEditor";
 import { LogViewer } from "@/components/logs/LogViewer";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
@@ -60,8 +62,13 @@ export function TaskDetail() {
               </span>
             )}
           </div>
-          {data && data.lastStatus !== "STOPPED" && (
-            <StopTaskButton cluster={cluster} taskId={taskId} />
+          {data && (
+            <div className="flex items-center gap-2">
+              <CopyAsCli resource={{ kind: "task", task: data }} />
+              {data.lastStatus !== "STOPPED" && (
+                <StopTaskButton cluster={cluster} taskId={taskId} />
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -93,6 +100,8 @@ export function TaskDetail() {
               <Field label="Connectivity" value={data.connectivity ?? "—"} />
             </CardContent>
           </Card>
+
+          <TagsEditor resourceArn={data.arn} tags={data.tags} />
 
           <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
             <TabsList>

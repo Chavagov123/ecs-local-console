@@ -17,6 +17,7 @@ import { logRoutes } from "./routes/logs.js";
 import { networkingRoutes } from "./routes/networking.js";
 import { serviceRoutes } from "./routes/services.js";
 import { taskDefinitionRoutes } from "./routes/task-definitions.js";
+import { tagRoutes } from "./routes/tags.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { TtlCache } from "./services/cache.js";
 
@@ -94,6 +95,7 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       await api.register(networkingRoutes);
       await api.register(logRoutes);
       await api.register(containerInstanceRoutes);
+      await api.register(tagRoutes);
       await api.register(eventRoutes);
     },
     { prefix: "/api" },

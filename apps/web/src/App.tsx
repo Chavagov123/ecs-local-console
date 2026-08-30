@@ -4,8 +4,11 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ConnectionBanner, ConnectionPill } from "@/components/ConnectionBanner";
+import { CommandPalette } from "@/components/CommandPalette";
+import { EndpointSwitcher } from "@/components/EndpointSwitcher";
 import { EventStreamProvider } from "@/components/events/EventStreamProvider";
 import { LoadingRows } from "@/components/States";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -30,6 +33,7 @@ const TaskDefFamilies = named(() => import("@/pages/TaskDefFamilies"), "TaskDefF
 const TaskDefRevisions = named(() => import("@/pages/TaskDefRevisions"), "TaskDefRevisions");
 const TaskDefDetail = named(() => import("@/pages/TaskDefDetail"), "TaskDefDetail");
 const TaskDefEditor = named(() => import("@/pages/TaskDefEditor"), "TaskDefEditor");
+const RevisionDiff = named(() => import("@/pages/RevisionDiff"), "RevisionDiff");
 const Logs = named(() => import("@/pages/Logs"), "Logs");
 const Settings = named(() => import("@/pages/Settings"), "Settings");
 const NotFound = named(() => import("@/pages/NotFound"), "NotFound");
@@ -48,10 +52,12 @@ function AppLayout() {
       <div className="flex min-h-screen w-full">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background px-4">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background px-4">
             <SidebarTrigger />
             <div className="flex-1" />
+            <EndpointSwitcher />
             <ConnectionPill />
+            <ThemeToggle />
           </header>
           <ConnectionBanner />
           <main className="min-w-0 flex-1 p-6">
@@ -69,6 +75,7 @@ function AppLayout() {
                 <Route path="/tasks" element={<AllTasks />} />
                 <Route path="/task-definitions" element={<TaskDefFamilies />} />
                 <Route path="/task-definitions/new" element={<TaskDefEditor />} />
+                <Route path="/task-definitions/:family/compare" element={<RevisionDiff />} />
                 <Route path="/task-definitions/:family" element={<TaskDefRevisions />} />
                 <Route path="/task-definitions/:family/:revision" element={<TaskDefDetail />} />
                 <Route path="/task-definitions/:family/:revision/edit" element={<TaskDefEditor />} />
@@ -92,6 +99,7 @@ export default function App() {
           <Toaster />
           <Sonner />
           <Router>
+            <CommandPalette />
             <AppLayout />
           </Router>
           {isDev && <ReactQueryDevtools initialIsOpen={false} />}

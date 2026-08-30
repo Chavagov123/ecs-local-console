@@ -1,11 +1,19 @@
 import { ArrowLeft } from "lucide-react";
 import { Fragment } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useTaskEnis, useTaskLogConfig } from "@/api/logs";
 import { useTask } from "@/api/tasks";
 import { InfoHint } from "@/components/InfoHint";
+import { LogViewer } from "@/components/logs/LogViewer";
 import { StatusBadge } from "@/components/StatusBadge";
-import { ErrorState, LoadingRows } from "@/components/States";
+import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
 import { StopTaskButton } from "@/components/tasks/StopTaskButton";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -89,6 +97,7 @@ export function TaskDetail() {
           <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
             <TabsList>
               <TabsTrigger value="containers">Containers</TabsTrigger>
+              <TabsTrigger value="logs">Logs</TabsTrigger>
               <TabsTrigger value="network">Network</TabsTrigger>
               <TabsTrigger value="json">JSON</TabsTrigger>
             </TabsList>
@@ -138,35 +147,17 @@ export function TaskDetail() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="logs" className="mt-4">
+              <TaskLogsTab cluster={cluster} taskId={taskId} />
+            </TabsContent>
+
             <TabsContent value="network" className="mt-4">
-              <Card>
-                <CardContent className="space-y-3 p-4 text-sm">
-                  <p className="flex items-center gap-1 text-muted-foreground">
-                    {awsvpc ? "awsvpc mode" : "bridge / host mode"}
-                    <InfoHint hint={awsvpc ? "NETWORK_MODE_AWSVPC" : "NETWORK_MODE_BRIDGE"} />
-                  </p>
-                  {data.attachments.length === 0 && (
-                    <p className="text-muted-foreground">
-                      No ENI attachments — this task uses host networking.
-                    </p>
-                  )}
-                  {data.attachments.map((a) => (
-                    <div key={a.id} className="rounded border p-3">
-                      <p className="text-xs font-medium">
-                        {a.type} · {a.status}
-                      </p>
-                      <dl className="mt-1 grid grid-cols-[10rem_1fr] gap-x-2 font-mono text-xs">
-                        {Object.entries(a.details).map(([k, v]) => (
-                          <Fragment key={k}>
-                            <dt className="text-muted-foreground">{k}</dt>
-                            <dd>{v}</dd>
-                          </Fragment>
-                        ))}
-                      </dl>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+              <TaskNetworkTab
+                cluster={cluster}
+                taskId={taskId}
+                awsvpc={!!awsvpc}
+                attachments={data.attachments}
+              />
             </TabsContent>
 
             <TabsContent value="json" className="mt-4">
@@ -182,6 +173,124 @@ export function TaskDetail() {
         </>
       )}
     </div>
+  );
+}
+
+function TaskLogsTab({ cluster, taskId }: { cluster: string; taskId: string }) {
+  const { data, isLoading, isError, error } = useTaskLogConfig(cluster, taskId);
+  if (isLoading) return <LoadingRows rows={3} />;
+  if (isError) return <ErrorState error={error} title="Couldn't resolve log config" />;
+  if (!data || data.containers.length === 0)
+    return <EmptyState>No containers on this task.</EmptyState>;
+
+  return (
+    <Accordion
+      type="single"
+      collapsible
+      defaultValue={data.containers.find((c) => c.logDriver === "awslogs")?.container}
+    >
+      {data.containers.map((c) => (
+        <AccordionItem key={c.container} value={c.container}>
+          <AccordionTrigger className="text-sm">
+            <span className="flex items-center gap-2">
+              {c.container}
+              <span className="rounded bg-muted px-1.5 text-xs text-muted-foreground">
+                {c.logDriver}
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent>
+            {c.logDriver === "awslogs" && c.awslogsGroup ? (
+              <LogViewer logGroup={c.awslogsGroup} logStream={c.computedStream} />
+            ) : (
+              <Alert>
+                <AlertTitle>Not in CloudWatch Logs</AlertTitle>
+                <AlertDescription className="flex items-center gap-1">
+                  {c.hint ?? "This container doesn't use the awslogs driver."}
+                  <InfoHint hint="LOG_DRIVER_NON_AWSLOGS" />
+                </AlertDescription>
+              </Alert>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      ))}
+    </Accordion>
+  );
+}
+
+function TaskNetworkTab({
+  cluster,
+  taskId,
+  awsvpc,
+  attachments,
+}: {
+  cluster: string;
+  taskId: string;
+  awsvpc: boolean;
+  attachments: { id?: string; type?: string; status?: string; details: Record<string, string> }[];
+}) {
+  const { data: enis } = useTaskEnis(cluster, taskId, awsvpc);
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-4 text-sm">
+        <p className="flex items-center gap-1 text-muted-foreground">
+          {awsvpc ? "awsvpc mode" : "bridge / host mode"}
+          <InfoHint hint={awsvpc ? "NETWORK_MODE_AWSVPC" : "NETWORK_MODE_BRIDGE"} />
+        </p>
+
+        {enis && enis.length > 0
+          ? enis.map((eni) => (
+              <div key={eni.networkInterfaceId} className="rounded border p-3">
+                <p className="font-mono text-xs font-medium">{eni.networkInterfaceId}</p>
+                <dl className="mt-1 grid grid-cols-[9rem_1fr] gap-x-2 gap-y-0.5 font-mono text-xs">
+                  <dt className="text-muted-foreground">Private IP</dt>
+                  <dd>{eni.privateIpAddress ?? "—"}</dd>
+                  <dt className="text-muted-foreground">Private DNS</dt>
+                  <dd className="break-all">{eni.privateDnsName ?? "—"}</dd>
+                  {eni.publicIp && (
+                    <>
+                      <dt className="text-muted-foreground">Public IP</dt>
+                      <dd>{eni.publicIp}</dd>
+                    </>
+                  )}
+                  <dt className="text-muted-foreground">Subnet</dt>
+                  <dd>{eni.subnetId ?? "—"}</dd>
+                  <dt className="text-muted-foreground">VPC</dt>
+                  <dd>{eni.vpcId ?? "—"}</dd>
+                  <dt className="text-muted-foreground">AZ</dt>
+                  <dd>{eni.availabilityZone ?? "—"}</dd>
+                  <dt className="text-muted-foreground">Security groups</dt>
+                  <dd>{eni.securityGroups.map((g) => g.groupId).join(", ") || "—"}</dd>
+                </dl>
+              </div>
+            ))
+          : null}
+
+        {(!enis || enis.length === 0) && attachments.length === 0 && (
+          <p className="text-muted-foreground">
+            No ENI attachments — this task uses host networking.
+          </p>
+        )}
+
+        {(!enis || enis.length === 0) &&
+          attachments.map((a) => (
+            <div key={a.id} className="rounded border p-3">
+              <p className="text-xs font-medium">
+                {a.type} · {a.status}
+              </p>
+              <dl className="mt-1 grid grid-cols-[10rem_1fr] gap-x-2 font-mono text-xs">
+                {Object.entries(a.details).map(([k, v]) => (
+                  <Fragment key={k}>
+                    <dt className="text-muted-foreground">{k}</dt>
+                    <dd>{v}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            </div>
+          ))}
+      </CardContent>
+    </Card>
   );
 }
 

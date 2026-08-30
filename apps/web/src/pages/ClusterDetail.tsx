@@ -173,7 +173,11 @@ export function ClusterDetail() {
           <Stat label="Services" value={data.activeServicesCount} />
           <Stat label="Running tasks" value={data.runningTasksCount} />
           <Stat label="Pending tasks" value={data.pendingTasksCount} />
-          <Stat label="Container instances" value={data.registeredContainerInstancesCount} />
+          <Stat
+            label="Container instances"
+            value={data.registeredContainerInstancesCount}
+            to={`/clusters/${cluster}/container-instances`}
+          />
         </div>
       ) : null}
 
@@ -204,13 +208,18 @@ export function ClusterDetail() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
+function Stat({ label, value, to }: { label: string; value: number; to?: string }) {
+  const body = (
+    <CardContent className="p-4">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+    </CardContent>
+  );
+  return to ? (
+    <Link to={to} className="block">
+      <Card className="h-full transition-colors hover:border-ring">{body}</Card>
+    </Link>
+  ) : (
+    <Card>{body}</Card>
   );
 }

@@ -12,6 +12,12 @@
  * depends on a moto-specific launchType/networkMode pairing (see the note on
  * that test). Retargeting to LocalStack means adjusting that one payload.
  */
+import {
+  CloudWatchLogsClient,
+  CreateLogGroupCommand,
+  CreateLogStreamCommand,
+  PutLogEventsCommand,
+} from "@aws-sdk/client-cloudwatch-logs";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildApp } from "../../src/app.js";
@@ -223,6 +229,47 @@ suite(`lifecycle @ ${ENDPOINT}`, () => {
       url: `/api/clusters/${CLUSTER}/tasks?desiredStatus=NONSENSE`,
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it("reads CloudWatch log events through /api/logs", async () => {
+    const logs = new CloudWatchLogsClient({
+      endpoint: ENDPOINT,
+      region: "us-east-1",
+      credentials: { accessKeyId: "test", secretAccessKey: "test" },
+    });
+    const group = `/elc-e2e/${RUN_ID}`;
+    const stream = "app/main/0";
+    await logs.send(new CreateLogGroupCommand({ logGroupName: group }));
+    await logs.send(new CreateLogStreamCommand({ logGroupName: group, logStreamName: stream }));
+    await logs.send(
+      new PutLogEventsCommand({
+        logGroupName: group,
+        logStreamName: stream,
+        logEvents: [{ timestamp: Date.now(), message: "hello from the integration test" }],
+      }),
+    );
+
+    const groups = await app.inject({ method: "GET", url: "/api/logs/groups" });
+    expect(groups.statusCode).toBe(200);
+    expect(groups.json().groups.map((g: { name: string }) => g.name)).toContain(group);
+
+    const events = await app.inject({
+      method: "GET",
+      url: `/api/logs?logGroup=${encodeURIComponent(group)}&logStream=${encodeURIComponent(stream)}`,
+    });
+    expect(events.statusCode).toBe(200);
+    expect(events.json().events.map((e: { message: string }) => e.message)).toContain(
+      "hello from the integration test",
+    );
+  });
+
+  it("returns 200 + [] for container instances (moto has none)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/clusters/${CLUSTER}/container-instances`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.json())).toBe(true);
   });
 
   it("deletes the service", async () => {

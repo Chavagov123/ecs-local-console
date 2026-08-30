@@ -344,15 +344,133 @@ export interface IamRole {
 // Events (SSE)
 // ---------------------------------------------------------------------------
 
+export type ChangeEventType =
+  | "task.started"
+  | "task.stopped"
+  | "task.replaced-by-scheduler"
+  | "service.deployment.completed"
+  | "service.changed";
+
 export interface ChangeEvent {
-  type:
-    | "task.started"
-    | "task.stopped"
-    | "task.replaced-by-scheduler"
-    | "service.deployment.completed"
-    | "service.changed";
+  /** Monotonic id within a server run, for `Last-Event-ID` replay + React keys. */
+  id: number;
+  type: ChangeEventType;
   cluster: string;
+  /** Service name for `service.*`; task id for `task.*`. */
   resource: string;
   ts: string;
   detail?: string;
+  /** For `task.stopped`: whether the stop was an error vs. a manual/graceful stop. */
+  severity?: "info" | "error";
+  /** For `task.*`: the owning service, when it could be derived. */
+  service?: string;
+}
+
+/** One deployment's slice of a service snapshot (blue/green visualization). */
+export interface SnapshotDeployment {
+  id: string;
+  taskDefinition: string;
+  status: string;
+  rolloutState?: string;
+  desired: number;
+  running: number;
+  pending: number;
+}
+
+/** Live per-service counts, pushed every engine tick (no query invalidation). */
+export interface ServiceSnapshot {
+  service: string;
+  desired: number;
+  running: number;
+  pending: number;
+  rolloutState?: string;
+  rolloutStateReason?: string;
+  deployments: SnapshotDeployment[];
+}
+
+export interface ClusterSnapshot {
+  cluster: string;
+  ts: string;
+  services: ServiceSnapshot[];
+}
+
+/** `event: hello` — sent once per connection with the current baseline. */
+export interface HelloEvent {
+  lastEventId: number;
+  clusters: ClusterSnapshot[];
+}
+
+// ---------------------------------------------------------------------------
+// CloudWatch Logs
+// ---------------------------------------------------------------------------
+
+export interface LogGroup {
+  name: string;
+  arn?: string;
+  storedBytes?: number;
+  retentionInDays?: number;
+  createdAt?: string;
+}
+
+export interface LogEvent {
+  timestamp: number;
+  message: string;
+  ingestionTime?: number;
+  logStreamName?: string;
+  /** Stable-ish id for React keys: `${timestamp}:${index}` or the FilterLogEvents eventId. */
+  eventId: string;
+}
+
+export interface LogPage {
+  events: LogEvent[];
+  /** Cursor for older events (GetLogEvents backward / FilterLogEvents next). */
+  nextBackwardToken?: string;
+  /** Cursor for newer events (GetLogEvents forward). */
+  nextForwardToken?: string;
+}
+
+/** Per-container logging config, resolved from the task + its task definition. */
+export interface ContainerLogConfig {
+  container: string;
+  logDriver: string;
+  awslogsGroup?: string;
+  awslogsStreamPrefix?: string;
+  awslogsRegion?: string;
+  /** `${prefix}/${container}/${taskId}` when the driver is `awslogs`. */
+  computedStream?: string;
+  /** Set when the driver isn't `awslogs` — the UI shows this instead of a viewer. */
+  hint?: string;
+}
+
+export interface TaskLogConfig {
+  taskId: string;
+  containers: ContainerLogConfig[];
+}
+
+// ---------------------------------------------------------------------------
+// ENIs / container instances
+// ---------------------------------------------------------------------------
+
+export interface Eni {
+  networkInterfaceId: string;
+  privateIpAddress?: string;
+  privateDnsName?: string;
+  publicIp?: string;
+  subnetId?: string;
+  vpcId?: string;
+  availabilityZone?: string;
+  securityGroups: { groupId: string; groupName?: string }[];
+  status?: string;
+}
+
+export interface ContainerInstance {
+  containerInstanceId: string;
+  arn: string;
+  ec2InstanceId?: string;
+  status: string;
+  agentConnected: boolean;
+  runningTasksCount: number;
+  pendingTasksCount: number;
+  registeredAt?: string;
+  capacityProviderName?: string;
 }

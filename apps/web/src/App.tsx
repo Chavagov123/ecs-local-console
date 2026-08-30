@@ -4,6 +4,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ConnectionBanner, ConnectionPill } from "@/components/ConnectionBanner";
+import { EventStreamProvider } from "@/components/events/EventStreamProvider";
 import { LoadingRows } from "@/components/States";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -18,6 +19,10 @@ const named = (loader: () => Promise<Record<string, unknown>>, key: string) =>
 
 const ClustersList = named(() => import("@/pages/ClustersList"), "ClustersList");
 const ClusterDetail = named(() => import("@/pages/ClusterDetail"), "ClusterDetail");
+const ContainerInstances = named(
+  () => import("@/pages/ContainerInstances"),
+  "ContainerInstances",
+);
 const ServiceDetail = named(() => import("@/pages/ServiceDetail"), "ServiceDetail");
 const TaskDetail = named(() => import("@/pages/TaskDetail"), "TaskDetail");
 const AllTasks = named(() => import("@/pages/AllTasks"), "AllTasks");
@@ -55,6 +60,10 @@ function AppLayout() {
                 <Route path="/" element={<Navigate to="/clusters" replace />} />
                 <Route path="/clusters" element={<ClustersList />} />
                 <Route path="/clusters/:cluster" element={<ClusterDetail />} />
+                <Route
+                  path="/clusters/:cluster/container-instances"
+                  element={<ContainerInstances />}
+                />
                 <Route path="/clusters/:cluster/services/:service" element={<ServiceDetail />} />
                 <Route path="/clusters/:cluster/tasks/:taskId" element={<TaskDetail />} />
                 <Route path="/tasks" element={<AllTasks />} />
@@ -79,12 +88,14 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={200}>
-        <Toaster />
-        <Sonner />
-        <Router>
-          <AppLayout />
-        </Router>
-        {isDev && <ReactQueryDevtools initialIsOpen={false} />}
+        <EventStreamProvider>
+          <Toaster />
+          <Sonner />
+          <Router>
+            <AppLayout />
+          </Router>
+          {isDev && <ReactQueryDevtools initialIsOpen={false} />}
+        </EventStreamProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

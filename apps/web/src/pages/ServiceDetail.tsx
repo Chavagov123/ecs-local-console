@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useService, useServiceTasks } from "@/api/services";
 import { InfoHint } from "@/components/InfoHint";
+import { ReconciliationPanel } from "@/components/reconciliation/ReconciliationPanel";
 import { ServiceActions } from "@/components/services/ServiceActions";
 import { StatusBadge } from "@/components/StatusBadge";
 import { EmptyState, ErrorState, LoadingRows } from "@/components/States";
@@ -68,6 +69,7 @@ export function ServiceDetail() {
           <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="reconciliation">Reconciliation</TabsTrigger>
               <TabsTrigger value="deployments">Deployments</TabsTrigger>
               <TabsTrigger value="events">Events</TabsTrigger>
               <TabsTrigger value="tasks">Tasks</TabsTrigger>
@@ -117,6 +119,10 @@ export function ServiceDetail() {
                   <Field label="Created" value={absoluteTime(data.createdAt)} />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="reconciliation" className="mt-4">
+              <ReconciliationPanel cluster={cluster} service={service} />
             </TabsContent>
 
             <TabsContent value="deployments" className="mt-4">

@@ -7,9 +7,13 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { ClientRegistry } from "./aws/clients.js";
 import { ApiError } from "./aws/errors.js";
 import { loadServerConfig, RuntimeConfigStore, type ServerConfig } from "./config.js";
+import { EventEngine } from "./events/engine.js";
 import { clusterRoutes } from "./routes/clusters.js";
 import { configRoutes } from "./routes/config.js";
+import { containerInstanceRoutes } from "./routes/container-instances.js";
+import { eventRoutes } from "./routes/events.js";
 import { healthRoutes } from "./routes/health.js";
+import { logRoutes } from "./routes/logs.js";
 import { networkingRoutes } from "./routes/networking.js";
 import { serviceRoutes } from "./routes/services.js";
 import { taskDefinitionRoutes } from "./routes/task-definitions.js";
@@ -22,6 +26,7 @@ declare module "fastify" {
     cache: TtlCache;
     configStore: RuntimeConfigStore;
     serverConfig: ServerConfig;
+    events: EventEngine;
   }
 }
 
@@ -36,17 +41,26 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
   const configStore = new RuntimeConfigStore(env);
   const clients = new ClientRegistry(configStore);
   const cache = new TtlCache(1500);
+  const events = new EventEngine(clients);
   configStore.onChange(() => cache.invalidate());
+  configStore.onChange(() => events.resetBaselines());
 
   const app = Fastify({
     logger: opts.logger ?? false,
     trustProxy: true,
+    // SSE connections are long-lived; don't let them stall a graceful shutdown.
+    forceCloseConnections: true,
   });
 
   app.decorate("clients", clients);
   app.decorate("cache", cache);
   app.decorate("configStore", configStore);
   app.decorate("serverConfig", serverConfig);
+  app.decorate("events", events);
+
+  app.addHook("onClose", async () => {
+    events.shutdown();
+  });
 
   await app.register(sensible);
 
@@ -78,6 +92,9 @@ export async function buildApp(opts: BuildAppOptions = {}): Promise<FastifyInsta
       await api.register(taskRoutes);
       await api.register(taskDefinitionRoutes);
       await api.register(networkingRoutes);
+      await api.register(logRoutes);
+      await api.register(containerInstanceRoutes);
+      await api.register(eventRoutes);
     },
     { prefix: "/api" },
   );

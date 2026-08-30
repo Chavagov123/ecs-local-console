@@ -176,6 +176,11 @@ work against it. The CloudWatch Logs viewer needs the `awslogs` driver to be hon
 (LocalStack does this; MiniStack ignores it, and the Logs tab then shows an inline hint
 instead of a stream).
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for dev setup and the architecture tour.
+Changes are logged in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 MIT

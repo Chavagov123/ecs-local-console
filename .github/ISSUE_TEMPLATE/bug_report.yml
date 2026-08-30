@@ -1,0 +1,45 @@
+name: Bug report
+description: Something in the console misbehaves
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got. Paste any error text or the normalized `{ code, message }` shown in the UI.
+    validations:
+      required: true
+  - type: dropdown
+    id: endpoint
+    attributes:
+      label: Endpoint
+      description: What is `AWS_ENDPOINT_URL` pointed at?
+      options:
+        - LocalStack
+        - MiniStack
+        - Moto
+        - Real AWS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Console version
+      description: The image tag or commit SHA (shown in the footer / `docker inspect`).
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a cluster `demo`
+        2. …
+  - type: textarea
+    id: logs
+    attributes:
+      label: Server logs
+      description: Relevant lines from `docker logs` / `pnpm dev` (redact anything sensitive).
+      render: text

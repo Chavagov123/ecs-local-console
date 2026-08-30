@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-08-30
+
+First stable release. No behaviour change over 0.4.0 — this marks the console as
+feature-complete for its scope and ready to adopt.
+
+### Added
+
+- README screenshots (reconciliation view, task-def editor, cluster detail,
+  command palette) + `docs/screenshots.md` for regenerating them.
+- `CONTRIBUTING.md`, issue / PR templates, this changelog.
+- A ready-to-submit `awesome-localstack` entry (`docs/awesome-localstack-entry.md`).
+
+### Changed
+
+- Honest positioning against LocalStack's own (now ECS-capable) Resource Browser,
+  with an "Alternatives" section in the README.
+
 ## [0.4.0] — 2026-08-30
 
 ### Added
@@ -73,7 +90,8 @@ All notable changes to this project are documented here. The format is based on
 - A tested write API (no UI yet) and an 8-step Moto lifecycle test.
 - `docker compose up` bundling the console with LocalStack; public GHCR image.
 
-[Unreleased]: https://github.com/Chavagov123/ecs-local-console/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Chavagov123/ecs-local-console/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Chavagov123/ecs-local-console/compare/v0.4.0...v1.0.0
 [0.4.0]: https://github.com/Chavagov123/ecs-local-console/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Chavagov123/ecs-local-console/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Chavagov123/ecs-local-console/compare/v0.1.0...v0.2.0

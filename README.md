@@ -14,9 +14,22 @@ real AWS.
 > scheduler drive `running` toward `desired`) that doesn't exist anywhere else. It also
 > points at MiniStack, Moto, or real AWS unchanged.
 
+## Screenshots
+
+| | |
+|---|---|
+| Live reconciliation view | Task-definition editor |
+| ![Reconciliation view](docs/img/reconciliation.jpg) | ![Task-definition editor](docs/img/task-def-editor.jpg) |
+| Cluster detail (light) | ⌘K command palette |
+| ![Cluster detail](docs/img/cluster-light.jpg) | ![Command palette](docs/img/command-palette.jpg) |
+
+<sub>Captured against Moto, which doesn't run task containers — so `running` sits at 0. Point
+at LocalStack for a live scheduler. See [docs/screenshots.md](docs/screenshots.md) to
+regenerate.</sub>
+
 ## Status
 
-**v0.4.0 — polish.** ([changelog](https://github.com/Chavagov123/ecs-local-console/releases))
+**v1.0.0 — stable.** ([changelog](CHANGELOG.md))
 
 Working today:
 
@@ -43,9 +56,6 @@ Working today:
 Every write is covered by a lifecycle test against a real ECS API (moto) in CI. The image
 is published for `linux/amd64` and `linux/arm64`.
 
-**Next (v1.0.0):** README screenshots + a reconciliation GIF, an `awesome-localstack` entry,
-`CONTRIBUTING.md`, issue templates.
-
 ## Alternatives
 
 - **[LocalStack Resource Browser](https://app.localstack.cloud)** — LocalStack's own web app.
@@ -69,7 +79,7 @@ docker compose up
 ```
 
 Open <http://localhost:4570>. This brings up LocalStack + the console together; the image
-is `ghcr.io/chavagov123/ecs-local-console` (`:latest` or a pinned `:0.4.0`).
+is `ghcr.io/chavagov123/ecs-local-console` (`:latest` or a pinned `:1.0.0`).
 
 ## How it works
 
